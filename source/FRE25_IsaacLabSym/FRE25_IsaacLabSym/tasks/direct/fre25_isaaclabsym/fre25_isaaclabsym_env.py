@@ -43,6 +43,8 @@ class WaypointHandler:
         self.lineZ = lineZ
 
         self.waypointsPositions = torch.zeros((nEnvs, nWaypoints, 3), dtype=torch.float32, device=envsOrigins.device)
+
+        self.currentWaypointIndices = torch.zeros((nEnvs, 1), dtype=torch.int32, device=envsOrigins.device)
         pass
 
     def initializeWaypoints(self):
@@ -75,6 +77,12 @@ class WaypointHandler:
 
         # Update the y coordinates of the waypoints
         self.waypointsPositions[env_ids, :, 1] = waypointsY
+
+    def updateCurrentMarker(self):
+        indexes = torch.zeros((self.nEnvs, self.nWaypoints), dtype=torch.int, device=self.waypointsPositions.device)
+        indexes[:, self.currentWaypointIndices] = 1
+        indexes = indexes.view(self.nEnvs * self.nWaypoints)
+        self.markersVisualizer.visualize(marker_indices=indexes)
 
 
 class Fre25IsaaclabsymEnv(DirectRLEnv):
@@ -124,6 +132,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
         self.actions = actions.clone()
         self.waypoints.visualizeWaypoints()
+        self.waypoints.updateCurrentMarker()
 
     def _apply_action(self) -> None:
         # Use the first half of the dofs for the wheels and the second half for the steering
