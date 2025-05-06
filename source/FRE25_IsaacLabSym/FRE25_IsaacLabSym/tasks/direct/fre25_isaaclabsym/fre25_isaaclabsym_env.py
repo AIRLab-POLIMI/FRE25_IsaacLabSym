@@ -36,12 +36,16 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
     def _setup_scene(self):
         self.robot: Articulation = Articulation(self.cfg.robot_cfg)
+
         # add ground plane
         spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg())
+
         # clone and replicate
         self.scene.clone_environments(copy_from_source=False)
+
         # add articulation to scene
         self.scene.articulations["robot"] = self.robot
+
         # add lights
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
@@ -51,18 +55,17 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
     def _apply_action(self) -> None:
         # Use the first half of the dofs for the wheels and the second half for the steering
-        wheel_actions = self.actions[:, : len(self.wheels_dof_idx)]
-        
-        #Normalize wheel actions to be 1
-        wheel_actions = torch.ones_like(wheel_actions) * 100000
-        self.robot.set_joint_velocity_target(
+        steering_actions = self.actions.repeat(1, len(self.steering_dof_idx)) * self.cfg.steering_scale * 3.14 / 180
+        # steering_actions = self.actions[:, len(self.wheels_dof_idx) :]
+        self.robot.set_joint_position_target(
+            steering_actions, joint_ids=self.steering_dof_idx
+        )
+
+        # Normalize wheel actions to be 1
+        wheel_actions = torch.ones_like(steering_actions) * self.cfg.wheels_effort_scale
+        self.robot.set_joint_effort_target(
             wheel_actions, joint_ids=self.wheels_dof_idx)
 
-        steering_actions = self.actions[:, len(self.wheels_dof_idx) :]
-        steering_actions = torch.zeros_like(steering_actions)
-        self.robot.set_joint_position_target(
-            steering_actions * 10, joint_ids=self.steering_dof_idx
-        )
         pass
 
     def _get_observations(self) -> dict:
@@ -103,7 +106,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         #     torch.abs(self.joint_pos[:, self._cart_dof_idx]) > self.cfg.max_cart_pos,
         #     dim=1,
         # )
-        out_of_bounds = out_of_bounds | False 
+        out_of_bounds = out_of_bounds | False
         # torch.any(
         #     torch.abs(self.joint_pos[:, self._pole_dof_idx]) > math.pi / 2, dim=1
         # )
