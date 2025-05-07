@@ -95,21 +95,19 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         pass
 
     def _get_observations(self) -> dict:
+        robot_pose = self.robots.data.root_state_w[:, :2]
+        self.waypoints.updateCurrentDiffs(robot_pose)
         obs = torch.cat(
             (
-                self.joint_pos[:, self.wheels_dof_idx[0]].unsqueeze(dim=1),
-                self.joint_vel[:, self.wheels_dof_idx[0]].unsqueeze(dim=1),
-                self.joint_pos[:, self.steering_dof_idx[0]].unsqueeze(dim=1),
-                self.joint_vel[:, self.steering_dof_idx[0]].unsqueeze(dim=1),
+                self.joint_pos[:, self.steering_dof_idx],
+                self.waypoints.robotsdiffs,
             ),
             dim=-1,
         )
         observations = {"policy": obs}
-        robot_pose = self.robots.data.root_state_w[:, :2]
         # print(f"Robot pose: {robot_pose}")
         # print(f"waypoint: {self.waypoints.currentWaypointPositions}")
         # with profiler.profile(record_shapes=True) as prof:
-        self.waypoints.updateCurrentDiffs(robot_pose)
         # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
         # print(f"Robot diffs: {torch.norm(self.waypoints.robotsdiffs, dim=1)}")
         # print(f"Robot pose: {robot_pose}")
