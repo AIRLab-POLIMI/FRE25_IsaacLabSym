@@ -17,7 +17,7 @@ from .RockerBot import ROCKERBOT_CFG, wheelsJoints, steeringJoints
 class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     # env
     decimation = 2
-    episode_length_s = 5.0
+    episode_length_s = 30.0
     # - spaces definition
     action_space = 1
     observation_space = 6
