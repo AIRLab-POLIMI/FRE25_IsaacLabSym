@@ -86,6 +86,13 @@ class WaypointHandler:
         # Update the y coordinates of the waypoints
         self.waypointsPositions[env_ids, :, 1] = waypointsY
 
+    def resetWaypoints(self, env_ids: Sequence[int]):
+        # Randomize the waypoints for the given environment ids
+        self.randomizeWaipoints(env_ids)
+
+        # Reset the current waypoint indices for the given environment ids
+        self.currentWaypointIndices[env_ids, 1] = 0
+
     def updateCurrentMarker(self):
         indexes = torch.zeros((self.nEnvs, self.nWaypoints), dtype=torch.int, device=self.waypointsPositions.device)
         indexes[self.currentWaypointIndices[:, 0], self.currentWaypointIndices[:, 1]] = 1
@@ -247,7 +254,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.robots.write_root_velocity_to_sim(default_root_state[:, 7:], env_ids)
         self.robots.write_joint_state_to_sim(joint_pos, joint_vel, None, env_ids)
 
-        self.waypoints.randomizeWaipoints(env_ids)
+        self.waypoints.resetWaypoints(env_ids)
 
 
 @torch.jit.script
