@@ -28,9 +28,7 @@ from .fre25_isaaclabsym_env_cfg import Fre25IsaaclabsymEnvCfg
 
 from .WaypointRelated.Waypoint import WAYPOINT_CFG
 from .WaypointRelated.WaypointHandler import WaypointHandler
-
-from .PlantRelated.Plant import PLANT_CFG
-
+from .PlantRelated.PlantHandler import PlantHandler
 # import torch.autograd.profiler as profiler
 
 
@@ -78,27 +76,10 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Add waypoint markers to the scene
         self.waypoint_markers = VisualizationMarkers(WAYPOINT_CFG)
 
-        self.Nplants = 10
+        # Add Plants to the scene
+        self.plants = PlantHandler(nPlants=100, envsOrigins=self.scene.env_origins)
 
-        # Spawn the plants
-        # Ensure the Plants prim path exists
-        prim_utils.create_prim("/World/envs/env_0/Plants")
-
-        plantsCFG = RigidObjectCollectionCfg(
-            rigid_objects={
-                f"Plant_{i}": RigidObjectCfg(
-                    prim_path=f"/World/envs/env_.*/Plants/Plant_{i}",
-                    spawn=PLANT_CFG,
-                    init_state=RigidObjectCfg.InitialStateCfg(
-                        pos=(0, 0, 0),
-                        rot=(0.70711, 0.70711, 0, 0),
-
-                    ),
-                ) for i in range(self.Nplants)
-            }
-        )
-
-        self.plants = RigidObjectCollection(plantsCFG)
+        self.plants.spawnPlants()
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
         self.actions = actions.clone()
@@ -127,7 +108,6 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         pass
 
     def _get_observations(self) -> dict:
-        print(f"Plants data: {self.plants.data.object_pos_w.shape}")
         robot_pose = self.robots.data.root_state_w[:, :2]
         self.waypoints.updateCurrentDiffs(robot_pose)
         obs = torch.cat(
@@ -195,27 +175,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.waypoints.resetWaypoints(env_ids)
 
         # Randomize plant positions
-        envOrigins: torch.Tensor = self.scene.env_origins[env_ids]
-        print(f"envOrigins: {envOrigins}")
-        print(f"env Origin shape: {envOrigins.shape}")
-        envOrigins = envOrigins.unsqueeze(1).repeat(
-            1, self.Nplants, 1
-        )
-        print(f"envOrigins: {envOrigins}")
-        print(f"env Origin shape: {envOrigins.shape}")
-
-        objStates = self.plants.data.object_state_w[env_ids]
-        print(f"objStates: {objStates}")
-        print(f"objStates shape: {objStates.shape}")
-
-        noise = torch.rand_like(
-            envOrigins[:, :, :2], device=envOrigins.device
-        ) * 2 - 1
-        print(f"noise: {noise}")
-        print(f"noise shape: {noise.shape}")
-        objStates[:, :, :2] = envOrigins[:, :, :2] + noise
-
-        self.plants.write_object_state_to_sim(objStates, env_ids)
+        self.plants.randomizePlantsPositions(env_ids)
 
 
 @torch.jit.script

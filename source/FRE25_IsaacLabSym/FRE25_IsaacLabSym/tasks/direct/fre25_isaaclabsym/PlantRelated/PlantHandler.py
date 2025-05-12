@@ -1,0 +1,59 @@
+from isaaclab.assets import (
+    Articulation,
+    RigidObject,
+    RigidObjectCfg,
+    RigidObjectCollection,
+    RigidObjectCollectionCfg,
+)
+
+import isaacsim.core.utils.prims as prim_utils
+
+from .Plant import PLANT_CFG
+import torch
+
+
+class PlantHandler:
+
+    def __init__(self, nPlants: int = 100, envsOrigins: torch.Tensor = None):
+        assert nPlants > 0, "Number of plants must be greater than 0, got {}".format(nPlants)
+        self.nPlants = nPlants
+
+        assert envsOrigins is not None, "envsOrigins must be provided"
+        self.envsOrigins = envsOrigins
+        pass
+
+    def spawnPlants(self):
+        # Spawn the plants
+        # Ensure the Plants prim path exists
+        prim_utils.create_prim("/World/envs/env_0/Plants")
+
+        plantsCFG = RigidObjectCollectionCfg(
+            rigid_objects={
+                f"Plant_{i}": RigidObjectCfg(
+                    prim_path=f"/World/envs/env_.*/Plants/Plant_{i}",
+                    spawn=PLANT_CFG,
+                    init_state=RigidObjectCfg.InitialStateCfg(
+                        pos=(0, 0, 0),
+                        rot=(0.70711, 0.70711, 0, 0),
+
+                    ),
+                ) for i in range(self.nPlants)
+            }
+        )
+        self.plants: RigidObjectCollection = RigidObjectCollection(plantsCFG)
+
+    def randomizePlantsPositions(self, env_ids: torch.Tensor):
+        # Randomize plant positions
+        envOrigins: torch.Tensor = self.envsOrigins[env_ids]
+        envOrigins = envOrigins.unsqueeze(1).repeat(
+            1, self.nPlants, 1
+        )
+
+        objStates = self.plants.data.object_state_w[env_ids]
+
+        noise = torch.rand_like(
+            envOrigins[:, :, :2], device=envOrigins.device
+        ) * 2 - 1
+        objStates[:, :, :2] = envOrigins[:, :, :2] + noise
+
+        self.plants.write_object_state_to_sim(objStates, env_ids)
