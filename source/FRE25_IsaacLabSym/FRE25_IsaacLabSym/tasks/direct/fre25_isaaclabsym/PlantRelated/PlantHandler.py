@@ -7,6 +7,7 @@ from isaaclab.assets import (
 )
 
 import isaacsim.core.utils.prims as prim_utils
+from ..PathHandler import PathHandler
 
 from .Plant import PLANT_CFG
 import torch
@@ -42,7 +43,7 @@ class PlantHandler:
         )
         self.plants: RigidObjectCollection = RigidObjectCollection(plantsCFG)
 
-    def randomizePlantsPositions(self, env_ids: torch.Tensor):
+    def randomizePlantsPositions(self, env_ids: torch.Tensor, pathHandler: PathHandler):
         # Randomize plant positions
         envOrigins: torch.Tensor = self.envsOrigins[env_ids]
         envOrigins = envOrigins.unsqueeze(1).repeat(
@@ -51,9 +52,9 @@ class PlantHandler:
 
         objStates = self.plants.data.object_state_w[env_ids]
 
-        noise = torch.rand_like(
-            envOrigins[:, :, :2], device=envOrigins.device
-        ) * 2 - 1
-        objStates[:, :, :2] = envOrigins[:, :, :2] + noise
+        pathPosition = pathHandler.samplePoints(env_ids, self.nPlants)
+        print(f"Env origins shape: {envOrigins.shape}")
+        print(f"Path position shape: {pathPosition.shape}")
+        objStates[:, :, :2] = envOrigins[:, :, :2] + pathPosition
 
         self.plants.write_object_state_to_sim(objStates, env_ids)
