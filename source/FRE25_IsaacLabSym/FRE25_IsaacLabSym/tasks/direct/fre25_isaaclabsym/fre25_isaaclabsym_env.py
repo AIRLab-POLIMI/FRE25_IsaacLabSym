@@ -30,7 +30,9 @@ from .WaypointRelated.Waypoint import WAYPOINT_CFG
 from .WaypointRelated.WaypointHandler import WaypointHandler
 from .PlantRelated.PlantHandler import PlantHandler
 from .PathHandler import PathHandler
+from isaaclab.sensors import ContactSensorCfg, ContactSensor
 # import torch.autograd.profiler as profiler
+import isaaclab.sim.schemas as schemas
 
 
 class Fre25IsaaclabsymEnv(DirectRLEnv):
@@ -59,6 +61,12 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
     def _setup_scene(self):
         self.robots: Articulation = Articulation(self.cfg.robot_cfg)
 
+        # Add contact sensor to the robot
+        contactSensorCfg = ContactSensorCfg(
+            prim_path="/World/envs/env_.*/Robot", update_period=0.0, history_length=6, debug_vis=True, filter_prim_paths_expr="/World/envs/env_.*/Plants",
+        )
+        self.contacts = ContactSensor(contactSensorCfg)
+
         # add ground plane
         spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg())
 
@@ -84,7 +92,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             nControlPoints=10,
             pathLength=10.0,
             pathWidth=.5,
-            pointNoiseStd=0.1,
+            pointNoiseStd=0.2,
         )
 
         self.paths.generatePath()
@@ -108,19 +116,23 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             / 180
         )
         # steering_actions = self.actions[:, len(self.wheels_dof_idx) :]
+        # steering_actions = torch.zeros_like(steering_actions)
         self.robots.set_joint_position_target(
             steering_actions, joint_ids=self.steering_dof_idx
         )
 
         # Normalize wheel actions to be 1
         wheel_actions = torch.ones_like(steering_actions) * self.cfg.wheels_effort_scale
-        self.robots.set_joint_effort_target(
+        self.robots.set_joint_velocity_target(
             wheel_actions, joint_ids=self.wheels_dof_idx
         )
 
         pass
 
     def _get_observations(self) -> dict:
+        # Print the robot contact information
+        # print("contact_physx_view", self.contacts.contact_physx_view)
+        # print("body_physx_view", self.contacts.body_physx_view)
         robot_pose = self.robots.data.root_state_w[:, :2]
         self.waypoints.updateCurrentDiffs(robot_pose)
         obs = torch.cat(
@@ -147,6 +159,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         return totalReward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
+        # print("data", self.contacts)
+
         # The episode has reached the maximum length
         time_out = self.episode_length_buf >= self.max_episode_length - 1
 

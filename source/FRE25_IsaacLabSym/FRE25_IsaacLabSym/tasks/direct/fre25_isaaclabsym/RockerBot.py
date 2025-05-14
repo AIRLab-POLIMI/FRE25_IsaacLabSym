@@ -48,6 +48,7 @@ ROCKERBOT_CFG: ArticulationCfg = ArticulationCfg(
             sleep_threshold=0.005,
             stabilization_threshold=0.001,
         ),
+        activate_contact_sensors=True,
     ),
     init_state=ArticulationCfg.InitialStateCfg(
         pos=(0, 0, 0.05),
@@ -61,15 +62,15 @@ ROCKERBOT_CFG: ArticulationCfg = ArticulationCfg(
     actuators={
         "wheels": ImplicitActuatorCfg(
             joint_names_expr=[".*wheel_joint"],
-            effort_limit=40000.0,
-            velocity_limit=500.0,
+            effort_limit_sim=40000.0,
+            velocity_limit_sim=500.0,
             stiffness=0.0,
             damping=100000.0,
         ),
         "steering": ImplicitActuatorCfg(
             joint_names_expr=[".*steer_joint"],
-            effort_limit=40000.0,
-            velocity_limit=100.0,
+            effort_limit_sim=40000.0,
+            velocity_limit_sim=100.0,
             stiffness=10000.0,
             damping=10.0,
         ),
