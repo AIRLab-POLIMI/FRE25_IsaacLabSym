@@ -55,7 +55,6 @@ class PathHandler:
         assert envIds.min() >= 0, "envIds must be non-negative, got min: {}".format(envIds.min())
         t = torch.linspace(0, 1, nPoints, device=self.device)
         points = self.spline.evaluate(t)[envIds]
-        print(points.shape)
 
         # Sample the path number
         pathNumber = torch.randint(0, self.nPaths, (envIds.shape[0], nPoints,), device=self.device)
