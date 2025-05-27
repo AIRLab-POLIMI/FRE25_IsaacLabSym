@@ -30,7 +30,6 @@ from .WaypointRelated.Waypoint import WAYPOINT_CFG
 from .WaypointRelated.WaypointHandler import WaypointHandler
 from .PlantRelated.PlantHandler import PlantHandler
 from .PathHandler import PathHandler
-from isaaclab.sensors import ContactSensorCfg, ContactSensor
 # import torch.autograd.profiler as profiler
 import isaaclab.sim.schemas as schemas
 
@@ -60,12 +59,6 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
     def _setup_scene(self):
         self.robots: Articulation = Articulation(self.cfg.robot_cfg)
-
-        # Add contact sensor to the robot
-        contactSensorCfg = ContactSensorCfg(
-            prim_path="/World/envs/env_.*/Robot", update_period=0.0, history_length=6, debug_vis=True, filter_prim_paths_expr="/World/envs/env_.*/Plants",
-        )
-        self.contacts = ContactSensor(contactSensorCfg)
 
         # add ground plane
         spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg())
@@ -130,9 +123,6 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         pass
 
     def _get_observations(self) -> dict:
-        # Print the robot contact information
-        # print("contact_physx_view", self.contacts.contact_physx_view)
-        # print("body_physx_view", self.contacts.body_physx_view)
         robot_pose = self.robots.data.root_state_w[:, :2]
         self.waypoints.updateCurrentDiffs(robot_pose)
         obs = torch.cat(
@@ -159,8 +149,6 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         return totalReward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
-        # print("data", self.contacts)
-
         # The episode has reached the maximum length
         time_out = self.episode_length_buf >= self.max_episode_length - 1
 
