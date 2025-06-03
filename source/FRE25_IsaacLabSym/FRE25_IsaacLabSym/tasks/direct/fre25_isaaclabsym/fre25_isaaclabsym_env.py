@@ -94,7 +94,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.plants = PlantHandler(
             nPlants=100,
             envsOrigins=self.scene.env_origins,
-            plantRadius=0.5,
+            plantRadius=0.3,
         )
 
         self.plants.spawnPlants()
@@ -129,10 +129,13 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
     def _get_observations(self) -> dict:
         robot_pose = self.robots.data.root_state_w[:, :2]
         self.waypoints.updateCurrentDiffs(robot_pose)
+        lidar = self.plants.computeDistancesToPlants(
+            robot_pose
+        )
         obs = torch.cat(
             (
                 self.joint_pos[:, self.steering_dof_idx],
-                self.waypoints.robotsdiffs,
+                lidar
             ),
             dim=-1,
         )
@@ -164,7 +167,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Check for plant collisions
         robot_pose = self.robots.data.root_state_w[:, :2]
-        plant_collisions = self.plants.detactPlantCollision(robot_pose)
+        plant_collisions = self.plants.detectPlantCollision()
 
         taskCompleted = reached_all_waypoints | time_out
         taskFailed = out_of_bounds | plant_collisions
