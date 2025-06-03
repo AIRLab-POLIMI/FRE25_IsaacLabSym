@@ -22,15 +22,15 @@ class RayMarcher:
         self.device = device
 
         # Initialize rays directions
-        directionsAngles = torch.linspace(0, 2 * torch.pi, self.raysPerRobot, device=self.device)
-        self.directions = torch.stack([torch.cos(directionsAngles), torch.sin(directionsAngles)], dim=-1)
+        self.directionsAngles = torch.linspace(0, 2 * torch.pi, self.raysPerRobot, device=self.device)
+        self.directions = torch.stack([torch.cos(self.directionsAngles), torch.sin(self.directionsAngles)], dim=-1)
 
     # Raymarching for multiple environments
     @torch.jit.script
     def raymarch_parallel_multiple_envs(start, directions, plantsPositions, plantRadius: float, max_distance: float = 5.0, tolerance: float = 1e-2, max_steps: int = 100):
-        # start: [nEnvs, 2], directions: [N, 2]
+        # start: [nEnvs, 2], directions: [nEnvs, N, 2]
         nEnvs = start.shape[0]
-        N = directions.shape[0]
+        N = directions.shape[1]
         positions = start.unsqueeze(1).repeat(1, N, 1)  # [nEnvs, N, 2]
         finished = torch.zeros(nEnvs, N, dtype=torch.bool, device=start.device)  # [nEnvs, N]
         distances = torch.zeros(nEnvs, N, dtype=torch.float32, device=start.device)  # [nEnvs, N]
@@ -47,7 +47,7 @@ class RayMarcher:
             hit = (sdf_min < tolerance)
             finished = finished | hit
             # Compute step size for unfinished rays
-            step = directions.unsqueeze(0) * sdf_min.unsqueeze(-1)
+            step = directions * sdf_min.unsqueeze(-1)
             # Only update unfinished rays
             # positions = torch.where(finished.unsqueeze(-1), positions, positions + step)
             positions = (~finished)[..., None] * step + positions
@@ -64,7 +64,7 @@ class RayMarcher:
 
         return positions, distances, nSteps
 
-    def sense(self, robot_pos_xy: torch.Tensor, plantsPositions: torch.Tensor, plantRadius: float):
+    def sense(self, robot_pos_xy: torch.Tensor, angles: torch.Tensor, plantsPositions: torch.Tensor, plantRadius: float):
         """
         Perform raymarching to sense the environment.
         :param robot_pos_xy: Robot position in world coordinates (nEnvs, 2)
@@ -74,6 +74,16 @@ class RayMarcher:
         """
         assert robot_pos_xy.dim() == 2, "robot_pos_xy must be a 2D tensor, got {}D".format(robot_pos_xy.dim())
         assert plantsPositions.dim() == 3, "plantsPositions must be a 3D tensor, got {}D".format(plantsPositions.dim())
+        assert plantsPositions.shape[0] == self.nEnvs, "plantsPositions must have the same number of environments as envsOrigins"
+
+        assert angles.shape[0] == self.nEnvs, "angles must have the same number of environments as envsOrigins"
+        offsettedAngles = self.directionsAngles.unsqueeze(0) + angles  # [nEnvs, raysPerRobot]
+        offsettedAngles %= (2 * torch.pi)  # Ensure angles are in [0, 2*pi]
+
+        self.directions = torch.stack(
+            [torch.cos(offsettedAngles), torch.sin(offsettedAngles)], dim=-1
+        )
+        print("Ray directions shape:", self.directions.shape)
 
         positions, distances, nSteps = RayMarcher.raymarch_parallel_multiple_envs(
             robot_pos_xy, self.directions, plantsPositions, plantRadius, self.maxDistance, self.tol, self.maxSteps

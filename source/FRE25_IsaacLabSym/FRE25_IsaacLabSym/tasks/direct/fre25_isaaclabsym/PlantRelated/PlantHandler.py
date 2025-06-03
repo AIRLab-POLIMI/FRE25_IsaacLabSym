@@ -70,15 +70,17 @@ class PlantHandler:
 
         self.plants.write_object_state_to_sim(objStates, env_ids)
 
-    def computeDistancesToPlants(self, robot_pos_xy: torch.Tensor) -> torch.Tensor:
+    def computeDistancesToPlants(self, robot_pos_xy: torch.Tensor, robotAngles: torch.Tensor) -> torch.Tensor:
         """
         Compute distances from the robot to all plants.
         :param robot_pos_xy: Robot position in world coordinates (nEnvs, 2)
+        :param robotAngles: Robot orientation angles (nEnvs, raysPerRobot)
         :return: A tensor of distances from the robot to each plant in each environment (nEnvs, nPlants)
         """
         assert robot_pos_xy.dim() == 2, "robot_pos_xy must be a 2D tensor, got {}D".format(robot_pos_xy.dim())
         _, distances, _ = self.raymarcher.sense(
             robot_pos_xy=robot_pos_xy,
+            angles=robotAngles,
             plantsPositions=self.plants.data.object_state_w[:, :, :2],
             plantRadius=self.plantRadius
         )
