@@ -32,6 +32,7 @@ from .PlantRelated.PlantHandler import PlantHandler
 from .PathHandler import PathHandler
 # import torch.autograd.profiler as profiler
 import isaaclab.sim.schemas as schemas
+from isaaclab.utils.math import axis_angle_from_quat as quat2axis
 
 
 class Fre25IsaaclabsymEnv(DirectRLEnv):
@@ -128,9 +129,13 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
     def _get_observations(self) -> dict:
         robot_pose = self.robots.data.root_state_w[:, :2]
+        robot_quat = self.robots.data.root_state_w[:, 3:7]
+        robotEuler = quat2axis(robot_quat)
+        robotZs = robotEuler[:, [2]]  # Extract the Z component of the Euler angles
         self.waypoints.updateCurrentDiffs(robot_pose)
         lidar = self.plants.computeDistancesToPlants(
-            robot_pose
+            robot_pose,
+            robotZs,
         )
         obs = torch.cat(
             (
