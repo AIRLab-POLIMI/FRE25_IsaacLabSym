@@ -20,7 +20,7 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     episode_length_s = 5.0
     # - spaces definition
     action_space = 1
-    observation_space = 8
+    observation_space = 6
     state_space = 0
 
     # simulation

@@ -14,7 +14,7 @@ class WaypointHandler:
         lineWidth: float = 1.0,
         lineZ: float = 0.0,
         waipointReachedEpsilon: float = 1,
-        maxDistanceToWaypoint: float = 10,
+        maxDistanceToWaypoint: float = 3,
     ):
         assert nEnvs > 0, "Number of environments must be greater than 0, got {}".format(nEnvs)
         self.nEnvs = nEnvs
