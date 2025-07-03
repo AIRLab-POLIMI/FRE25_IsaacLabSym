@@ -19,7 +19,7 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     decimation = 2
     episode_length_s = 5.0
     # - spaces definition
-    action_space = 8
+    action_space = 1
     observation_space = 8
     state_space = 0
 
@@ -30,7 +30,7 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     robot_cfg: ArticulationCfg = ROCKERBOT_CFG.replace(prim_path="/World/envs/env_.*/Robot")
 
     # scene
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=16, env_spacing=10.0, replicate_physics=True)
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1, env_spacing=10.0, replicate_physics=True)
 
     # custom parameters/scales
     # - controllable joint
@@ -40,6 +40,9 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     steering_dofs_names = steeringJoints
     # - action scale
     action_scale = 100000.0  # [N]
+    wheels_effort_scale = -1000
+    # The range of the steering action is [-1, 1], which corresponds to a steering angle of [-steering_scale, steering_scale] degrees
+    steering_scale = 60  # degs
     # - reward scales
     rew_scale_alive = 1.0
     rew_scale_terminated = -2.0

@@ -50,7 +50,7 @@ ROCKERBOT_CFG: ArticulationCfg = ArticulationCfg(
         ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(2.0, 2.0, 0.05),
+        pos=(0, 0, 0.05),
         joint_pos={
             jointName: 0.0 for jointName in steeringJoints
         },
