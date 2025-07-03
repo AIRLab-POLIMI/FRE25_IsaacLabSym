@@ -111,7 +111,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # with profiler.profile(record_shapes=True) as prof:
         self.waypoints.updateCurrentDiffs(robot_pose)
         # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
-        print(f"Robot diffs: {torch.norm(self.waypoints.robotsdiffs, dim=1)}")
+        # print(f"Robot diffs: {torch.norm(self.waypoints.robotsdiffs, dim=1)}")
         # print(f"Robot pose: {robot_pose}")
 
         return observations
@@ -132,17 +132,19 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         return total_reward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
-        self.joint_pos = self.robots.data.joint_pos
-        self.joint_vel = self.robots.data.joint_vel
-
+        # The episode has reached the maximum length
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        # torch.any(
-        #     torch.abs(self.joint_pos[:, self._cart_dof_idx]) > self.cfg.max_cart_pos,
-        #     dim=1,
-        # )
+
+        # the robot has reached all the waypoints
+        reached_all_waypoints = self.waypoints.taskCompleted
+
+        # The robot is too far from the current waypoint
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
-        print(f"Out of bounds: {out_of_bounds}")
-        return out_of_bounds, time_out
+
+        taskCompleted = reached_all_waypoints | time_out
+        taskFailed = out_of_bounds
+
+        return taskFailed, taskCompleted
 
     def _reset_idx(self, env_ids: Sequence[int] | None):
         if env_ids is None:

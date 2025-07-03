@@ -10,11 +10,11 @@ class WaypointHandler:
         nEnvs: int,
         envsOrigins: torch.Tensor,
         nWaypoints: int = 10,
-        lineLength: float = 10.0,
+        lineLength: float = 10,
         lineWidth: float = 1.0,
         lineZ: float = 0.0,
         waipointReachedEpsilon: float = 1,
-        maxDistanceToWaypoint: float = 3,
+        maxDistanceToWaypoint: float = 10,
     ):
         assert nEnvs > 0, "Number of environments must be greater than 0, got {}".format(nEnvs)
         self.nEnvs = nEnvs
@@ -80,6 +80,10 @@ class WaypointHandler:
         self.robotTooFarFromWaypoint = torch.zeros(
             (nEnvs), dtype=torch.bool, device=envsOrigins.device
         )
+        # Whether the robot has completed all the waypoints for each environment
+        self.taskCompleted = torch.zeros(
+            (nEnvs), dtype=torch.bool, device=envsOrigins.device
+        )
         pass
 
     def initializeWaypoints(self):
@@ -143,6 +147,9 @@ class WaypointHandler:
             self.currentWaypointIndices[env_ids, 1],
         ]
 
+        # reset the task completed status for the given environment ids
+        self.taskCompleted[env_ids] = False
+
     def updateCurrentMarker(self):
         indexes = torch.zeros(
             (self.nEnvs, self.nWaypoints),
@@ -172,13 +179,17 @@ class WaypointHandler:
 
     def waypointReachedUpdates(self, waypointReached: torch.Tensor):
         # Update the current waypoint index for each environment
-        self.currentWaypointIndices[waypointReached, 1] += 1
+        notAtLastWaypoint = self.currentWaypointIndices[:, 1] < self.nWaypoints - 1
+        waypointReachedAndNotAtLast = waypointReached & notAtLastWaypoint
+        self.currentWaypointIndices[waypointReachedAndNotAtLast, 1] += 1
 
         # Update the current waypoint position for each environment
-        self.currentWaypointPositions[waypointReached] = self.waypointsPositions[
-            self.currentWaypointIndices[waypointReached, 0],
-            self.currentWaypointIndices[waypointReached, 1],
+        self.currentWaypointPositions[waypointReachedAndNotAtLast] = self.waypointsPositions[
+            self.currentWaypointIndices[waypointReachedAndNotAtLast, 0],
+            self.currentWaypointIndices[waypointReachedAndNotAtLast, 1],
         ]
+
+        self.taskCompleted = waypointReached & (~notAtLastWaypoint)
 
     def updateTooFarFromWaypoint(self):
         # Check if the robot is too far from the current waypoint
