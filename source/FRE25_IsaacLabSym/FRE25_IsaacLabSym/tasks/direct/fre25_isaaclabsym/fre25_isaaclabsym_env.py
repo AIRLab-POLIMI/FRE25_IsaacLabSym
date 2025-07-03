@@ -91,7 +91,11 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.paths.generatePath()
 
         # Add Plants to the scene
-        self.plants = PlantHandler(nPlants=100, envsOrigins=self.scene.env_origins)
+        self.plants = PlantHandler(
+            nPlants=100,
+            envsOrigins=self.scene.env_origins,
+            plantRadius=0.5,
+        )
 
         self.plants.spawnPlants()
 
@@ -158,8 +162,12 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # The robot is too far from the current waypoint
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
 
+        # Check for plant collisions
+        robot_pose = self.robots.data.root_state_w[:, :2]
+        plant_collisions = self.plants.detactPlantCollision(robot_pose)
+
         taskCompleted = reached_all_waypoints | time_out
-        taskFailed = out_of_bounds
+        taskFailed = out_of_bounds | plant_collisions
 
         return taskFailed, taskCompleted
 

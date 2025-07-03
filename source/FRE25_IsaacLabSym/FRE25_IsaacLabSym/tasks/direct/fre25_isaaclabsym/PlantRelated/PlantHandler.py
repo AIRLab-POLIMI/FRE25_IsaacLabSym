@@ -15,12 +15,15 @@ import torch
 
 class PlantHandler:
 
-    def __init__(self, nPlants: int = 100, envsOrigins: torch.Tensor = None):
+    def __init__(self, nPlants: int = 100, envsOrigins: torch.Tensor = None, plantRadius: float = 1):
         assert nPlants > 0, "Number of plants must be greater than 0, got {}".format(nPlants)
         self.nPlants = nPlants
 
         assert envsOrigins is not None, "envsOrigins must be provided"
         self.envsOrigins = envsOrigins
+
+        assert plantRadius > 0, "Plant radius must be greater than 0, got {}".format(plantRadius)
+        self.plantRadius = plantRadius
         pass
 
     def spawnPlants(self):
@@ -56,3 +59,19 @@ class PlantHandler:
         objStates[:, :, :2] = envOrigins[:, :, :2] + pathPosition
 
         self.plants.write_object_state_to_sim(objStates, env_ids)
+
+    def detactPlantCollision(self, robot_pos_xy: torch.Tensor) -> torch.Tensor:
+        """
+        Detect if the robot is colliding with any plant.
+        :param robot_pos_xy: Robot position in world coordinates (nEnvs, 2)
+        :return: A boolean tensor indicating if the robot is colliding with any plant in each environment (nEnvs,)
+        """
+        assert robot_pos_xy.dim() == 2, "robot_pos_xy must be a 2D tensor, got {}D".format(robot_pos_xy.dim())
+        # Robot pos (nEnvs, 2)
+        plantsPositions = self.plants.data.object_state_w[:, :, :2]  # (nEnvs, nPlants, 2)
+        diff = robot_pos_xy.unsqueeze(1) - plantsPositions  # (nEnvs, nPlants, 2)
+        distances = torch.norm(diff, dim=2)  # (nEnvs, nPlants)
+        minDistances, _ = torch.min(distances, dim=1)  # (nEnvs,)
+        # Check if the robot is within the plant radius
+        collisions = minDistances < self.plantRadius
+        return collisions
