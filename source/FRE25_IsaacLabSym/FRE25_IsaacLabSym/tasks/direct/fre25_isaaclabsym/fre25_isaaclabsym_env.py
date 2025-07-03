@@ -115,19 +115,10 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         return observations
 
     def _get_rewards(self) -> torch.Tensor:
-        total_reward = compute_rewards(
-            self.cfg.rew_scale_alive,
-            self.cfg.rew_scale_terminated,
-            self.cfg.rew_scale_pole_pos,
-            self.cfg.rew_scale_cart_vel,
-            self.cfg.rew_scale_pole_vel,
-            self.joint_pos[:, self.wheels_dof_idx[0]],
-            self.joint_vel[:, self.wheels_dof_idx[0]],
-            self.joint_pos[:, self.steering_dof_idx[0]],
-            self.joint_vel[:, self.steering_dof_idx[0]],
-            self.reset_terminated,
-        )
-        return total_reward
+        stayAliveReward = (1.0 - self.reset_terminated.float())
+        waypointReward = self.waypoints.currentWaypointIndices[:, 1].float() * 0.1
+        totalReward = stayAliveReward + waypointReward
+        return totalReward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
         # The episode has reached the maximum length
