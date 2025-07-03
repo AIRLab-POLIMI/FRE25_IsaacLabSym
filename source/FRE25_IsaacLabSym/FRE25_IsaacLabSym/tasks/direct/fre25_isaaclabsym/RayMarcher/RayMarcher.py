@@ -83,7 +83,6 @@ class RayMarcher:
         self.directions = torch.stack(
             [torch.cos(offsettedAngles), torch.sin(offsettedAngles)], dim=-1
         )
-        print("Ray directions shape:", self.directions.shape)
 
         positions, distances, nSteps = RayMarcher.raymarch_parallel_multiple_envs(
             robot_pos_xy, self.directions, plantsPositions, plantRadius, self.maxDistance, self.tol, self.maxSteps
