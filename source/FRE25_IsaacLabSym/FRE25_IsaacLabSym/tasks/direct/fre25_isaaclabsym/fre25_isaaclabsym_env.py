@@ -18,41 +18,93 @@ from isaaclab.markers import VisualizationMarkers
 
 from .fre25_isaaclabsym_env_cfg import Fre25IsaaclabsymEnvCfg
 from .Waypoint import WAYPOINT_CFG
+
 # import torch.autograd.profiler as profiler
 
 
 class WaypointHandler:
-    def __init__(self, nEnvs: int, envsOrigins: torch.Tensor, nWaypoints: int = 10, lineLength: float = 10.0, lineWidth: float = 1.0, lineZ: float = 0.0):
-        assert nEnvs > 0, "Number of environments must be greater than 0"
+    def __init__(
+        self,
+        nEnvs: int,
+        envsOrigins: torch.Tensor,
+        nWaypoints: int = 10,
+        lineLength: float = 10.0,
+        lineWidth: float = 1.0,
+        lineZ: float = 0.0,
+        waipointReachedEpsilon: float = 1,
+        maxDistanceToWaypoint: float = 3,
+    ):
+        assert nEnvs > 0, "Number of environments must be greater than 0, got {}".format(nEnvs)
         self.nEnvs = nEnvs
 
-        assert nWaypoints > 0, "Number of waypoints must be greater than 0"
+        assert nWaypoints > 0, "Number of waypoints must be greater than 0, got {}".format(nWaypoints)
         self.nWaypoints = nWaypoints
 
-        assert envsOrigins.shape == (nEnvs, 3), "envsOrigins must be of shape (nEnvs, 3)"
-        self.envsOrigins: torch.Tensor = envsOrigins.unsqueeze(1).repeat(1, self.nWaypoints, 1)
+        assert envsOrigins.shape == (
+            nEnvs,
+            3,
+        ), "envsOrigins must be of shape (nEnvs, 3), but got {}".format(
+            envsOrigins.shape
+        )
+        self.envsOrigins: torch.Tensor = envsOrigins.unsqueeze(1).repeat(
+            1, self.nWaypoints, 1
+        )
 
-        assert lineLength >= 0, "Line length must be greater than 0"
+        assert lineLength >= 0, "Line length must be greater than 0, got {}".format(lineLength)
         self.lineLength = lineLength
 
-        assert lineWidth >= 0, "Line width must be greater than 0"
+        assert lineWidth >= 0, "Line width must be greater than 0, got {}".format(lineWidth)
         self.lineWidth = lineWidth
 
         self.lineZ = lineZ
 
-        self.waypointsPositions = torch.zeros((nEnvs, nWaypoints, 3), dtype=torch.float32, device=envsOrigins.device)
+        assert (
+            waipointReachedEpsilon >= 0
+        ), "Waypoint reached epsilon must be greater than 0, got {}".format(
+            waipointReachedEpsilon
+        )
+        self.waipointReachedEpsilon = waipointReachedEpsilon
+
+        assert (
+            maxDistanceToWaypoint > waipointReachedEpsilon
+        ), "Max distance to waypoint must be greater than waypoint reached epsilon, got {} and {}".format(
+            maxDistanceToWaypoint, waipointReachedEpsilon
+        )
+        self.maxDistanceToWaypoint = maxDistanceToWaypoint
+
+        self.waypointsPositions = torch.zeros(
+            (nEnvs, nWaypoints, 3), dtype=torch.float32, device=envsOrigins.device
+        )
 
         # The indices of the current waypoint for each environment
-        self.currentWaypointIndices = torch.zeros((nEnvs, 2), dtype=torch.int32, device=envsOrigins.device)
-        self.currentWaypointIndices[:, 0] = torch.arange(nEnvs, device=envsOrigins.device)
+        self.currentWaypointIndices = torch.zeros(
+            (nEnvs, 2), dtype=torch.int32, device=envsOrigins.device
+        )
+        self.currentWaypointIndices[:, 0] = torch.arange(
+            nEnvs, device=envsOrigins.device
+        )
 
         # The position of the current waypoint for each environment
-        self.currentWaypointPositions = torch.zeros((nEnvs, 3), dtype=torch.float32, device=envsOrigins.device)
+        self.currentWaypointPositions = torch.zeros(
+            (nEnvs, 3), dtype=torch.float32, device=envsOrigins.device
+        )
+
+        # The current diffs to the current waypoint for each environment
+        self.robotsdiffs = torch.zeros(
+            (nEnvs, 2), dtype=torch.float32, device=envsOrigins.device
+        )
+
+        # Whether the robot is too far from the current waypoint for each environment
+        self.robotTooFarFromWaypoint = torch.zeros(
+            (nEnvs), dtype=torch.bool, device=envsOrigins.device
+        )
         pass
 
     def initializeWaypoints(self):
         # Initialize waypoints in a straight line
-        waypointsX = torch.linspace(0, self.lineLength, self.nWaypoints).repeat(self.nEnvs, 1)
+        waypointsX = torch.linspace(0, self.lineLength, self.nWaypoints).repeat(
+            self.nEnvs, 1
+        )
         waypointsY = (2 * torch.rand(self.nEnvs, self.nWaypoints) - 1) * self.lineWidth
         waypointsZ = torch.full((self.nEnvs, self.nWaypoints), self.lineZ)
 
@@ -66,19 +118,29 @@ class WaypointHandler:
         self.markersVisualizer = VisualizationMarkers(WAYPOINT_CFG)
 
         # Select the current waypoint for each environment
-        self.currentWaypointPositions = self.waypointsPositions[self.currentWaypointIndices[:, 0], self.currentWaypointIndices[:, 1]]
+        self.currentWaypointPositions = self.waypointsPositions[
+            self.currentWaypointIndices[:, 0], self.currentWaypointIndices[:, 1]
+        ]
 
         # update current marker
         self.updateCurrentMarker()
 
     def visualizeWaypoints(self):
         # Visualize waypoints
-        linearizedPositions = self.waypointsPositions.view(self.nEnvs * self.nWaypoints, 3)
+        linearizedPositions = self.waypointsPositions.view(
+            self.nEnvs * self.nWaypoints, 3
+        )
         self.markersVisualizer.visualize(translations=linearizedPositions)
 
     def randomizeWaipoints(self, env_ids: Sequence[int]):
         # Randomize the y coordinates of the waypoints
-        waypointsY = (2 * torch.rand(len(env_ids), self.nWaypoints, device=self.waypointsPositions.device) - 1) * self.lineWidth
+        waypointsY = (
+            2
+            * torch.rand(
+                len(env_ids), self.nWaypoints, device=self.waypointsPositions.device
+            )
+            - 1
+        ) * self.lineWidth
 
         # add the environment origins to the waypoints
         waypointsY += self.envsOrigins[env_ids, :, 1]
@@ -93,9 +155,21 @@ class WaypointHandler:
         # Reset the current waypoint indices for the given environment ids
         self.currentWaypointIndices[env_ids, 1] = 0
 
+        # Reset the current waypoint positions for the given environment ids
+        self.currentWaypointPositions[env_ids] = self.waypointsPositions[
+            self.currentWaypointIndices[env_ids, 0],
+            self.currentWaypointIndices[env_ids, 1],
+        ]
+
     def updateCurrentMarker(self):
-        indexes = torch.zeros((self.nEnvs, self.nWaypoints), dtype=torch.int, device=self.waypointsPositions.device)
-        indexes[self.currentWaypointIndices[:, 0], self.currentWaypointIndices[:, 1]] = 1
+        indexes = torch.zeros(
+            (self.nEnvs, self.nWaypoints),
+            dtype=torch.int,
+            device=self.waypointsPositions.device,
+        )
+        indexes[
+            self.currentWaypointIndices[:, 0], self.currentWaypointIndices[:, 1]
+        ] = 1
         indexes = indexes.view(self.nEnvs * self.nWaypoints)
         self.markersVisualizer.visualize(marker_indices=indexes)
 
@@ -113,6 +187,39 @@ class WaypointHandler:
         diff = robot_pos_xy - self.currentWaypointPositions[:, :2]
         # assert diff.shape == (self.nEnvs, 2), "diff must be of shape (nEnvs, 2)"
         return diff
+
+    def waypointReachedUpdates(self, waypointReached: torch.Tensor):
+        # Update the current waypoint index for each environment
+        self.currentWaypointIndices[waypointReached, 1] += 1
+
+        # Update the current waypoint position for each environment
+        self.currentWaypointPositions[waypointReached] = self.waypointsPositions[
+            self.currentWaypointIndices[waypointReached, 0],
+            self.currentWaypointIndices[waypointReached, 1],
+        ]
+
+    def updateTooFarFromWaypoint(self):
+        # Check if the robot is too far from the current waypoint
+        self.robotTooFarFromWaypoint = (
+            torch.norm(self.robotsdiffs, dim=1) > self.maxDistanceToWaypoint
+        )
+
+    def updateCurrentDiffs(self, robot_pos_xy: torch.Tensor):
+        # Update the diffs to the current waypoint for each environment
+        self.robotsdiffs = self.diffToCurrentWaypoint(robot_pos_xy)
+
+        # Check if the robot is close to the current waypoint
+        close_to_waypoint = (
+            torch.norm(self.robotsdiffs, dim=1) < self.waipointReachedEpsilon
+        )
+
+        # Check if the robot is close to the current waypoint and update the waypoint index
+        self.waypointReachedUpdates(close_to_waypoint)
+
+        # Check if the robot is too far from the current waypoint
+        self.updateTooFarFromWaypoint()
+
+        return close_to_waypoint
 
 
 class Fre25IsaaclabsymEnv(DirectRLEnv):
@@ -166,7 +273,12 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
     def _apply_action(self) -> None:
         # Use the first half of the dofs for the wheels and the second half for the steering
-        steering_actions = self.actions.repeat(1, len(self.steering_dof_idx)) * self.cfg.steering_scale * 3.14 / 180
+        steering_actions = (
+            self.actions.repeat(1, len(self.steering_dof_idx))
+            * self.cfg.steering_scale
+            * 3.14
+            / 180
+        )
         # steering_actions = self.actions[:, len(self.wheels_dof_idx) :]
         self.robots.set_joint_position_target(
             steering_actions, joint_ids=self.steering_dof_idx
@@ -175,7 +287,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Normalize wheel actions to be 1
         wheel_actions = torch.ones_like(steering_actions) * self.cfg.wheels_effort_scale
         self.robots.set_joint_effort_target(
-            wheel_actions, joint_ids=self.wheels_dof_idx)
+            wheel_actions, joint_ids=self.wheels_dof_idx
+        )
 
         pass
 
@@ -191,10 +304,12 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         )
         observations = {"policy": obs}
         robot_pose = self.robots.data.root_state_w[:, :2]
+        # print(f"Robot pose: {robot_pose}")
+        # print(f"waypoint: {self.waypoints.currentWaypointPositions}")
         # with profiler.profile(record_shapes=True) as prof:
-        diffs = self.waypoints.diffToCurrentWaypoint(robot_pose)
+        self.waypoints.updateCurrentDiffs(robot_pose)
         # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
-        print(f"Robot diffs: {diffs}")
+        print(f"Robot diffs: {torch.norm(self.waypoints.robotsdiffs, dim=1)}")
         # print(f"Robot pose: {robot_pose}")
 
         return observations
@@ -219,15 +334,12 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.joint_vel = self.robots.data.joint_vel
 
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        out_of_bounds = False
         # torch.any(
         #     torch.abs(self.joint_pos[:, self._cart_dof_idx]) > self.cfg.max_cart_pos,
         #     dim=1,
         # )
-        out_of_bounds = out_of_bounds | False
-        # torch.any(
-        #     torch.abs(self.joint_pos[:, self._pole_dof_idx]) > math.pi / 2, dim=1
-        # )
+        out_of_bounds = self.waypoints.robotTooFarFromWaypoint
+        print(f"Out of bounds: {out_of_bounds}")
         return out_of_bounds, time_out
 
     def _reset_idx(self, env_ids: Sequence[int] | None):
