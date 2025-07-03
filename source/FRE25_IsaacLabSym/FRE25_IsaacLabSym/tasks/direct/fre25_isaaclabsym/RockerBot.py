@@ -14,7 +14,7 @@ from isaaclab.assets import ArticulationCfg
 WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
 # USD path with proper resolution for cross-platform compatibility
-USD_PATH = os.path.join(WORKSPACE_ROOT, "Collected_RockerBot", "RockerBot.usd")
+USD_PATH = os.path.join(WORKSPACE_ROOT, "Assets", "Collected_RockerBot", "RockerBot.usd")
 
 wheelsJoints = [
     "front_left_wheel_joint",
