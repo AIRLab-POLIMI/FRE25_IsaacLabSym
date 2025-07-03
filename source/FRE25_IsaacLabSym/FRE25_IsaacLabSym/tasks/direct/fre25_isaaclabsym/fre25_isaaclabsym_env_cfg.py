@@ -30,7 +30,7 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     robot_cfg: ArticulationCfg = ROCKERBOT_CFG.replace(prim_path="/World/envs/env_.*/Robot")
 
     # scene
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1, env_spacing=10.0, replicate_physics=True)
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1, env_spacing=20.0, replicate_physics=True)
 
     # custom parameters/scales
     # - controllable joint

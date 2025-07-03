@@ -14,8 +14,67 @@ from isaaclab.assets import Articulation
 from isaaclab.envs import DirectRLEnv
 from isaaclab.sim.spawners.from_files import GroundPlaneCfg, spawn_ground_plane
 from isaaclab.utils.math import sample_uniform
+from isaaclab.markers import VisualizationMarkers
 
 from .fre25_isaaclabsym_env_cfg import Fre25IsaaclabsymEnvCfg
+from .Waypoint import WAYPOINT_CFG
+
+
+class WaypointHandler:
+    def __init__(self, nEnvs: int, envsOrigins: torch.Tensor, nWaypoints: int = 10, lineLength: float = 10.0, lineWidth: float = 1.0, lineZ: float = 0.0):
+        assert nEnvs > 0, "Number of environments must be greater than 0"
+        self.nEnvs = nEnvs
+
+        assert nWaypoints > 0, "Number of waypoints must be greater than 0"
+        self.nWaypoints = nWaypoints
+
+        assert envsOrigins.shape == (nEnvs, 3), "envsOrigins must be of shape (nEnvs, 3)"
+        print(f"envsOrigins: {envsOrigins}")
+        self.envsOrigins: torch.Tensor = envsOrigins.unsqueeze(1).repeat(1, self.nWaypoints, 1)
+        print(f"envsOrigins: {self.envsOrigins}")
+        print(f"envsOrigins shape: {self.envsOrigins.shape}")
+
+        assert lineLength >= 0, "Line length must be greater than 0"
+        self.lineLength = lineLength
+
+        assert lineWidth >= 0, "Line width must be greater than 0"
+        self.lineWidth = lineWidth
+
+        self.lineZ = lineZ
+
+        self.waypointsPositions = torch.zeros((nEnvs, nWaypoints, 3), dtype=torch.float32, device=envsOrigins.device)
+        pass
+
+    def initializeWaypoints(self):
+        # Initialize waypoints in a straight line
+        waypointsX = torch.linspace(0, self.lineLength, self.nWaypoints).repeat(self.nEnvs, 1)
+        waypointsY = (2 * torch.rand(self.nEnvs, self.nWaypoints) - 1) * self.lineWidth
+        waypointsZ = torch.full((self.nEnvs, self.nWaypoints), self.lineZ)
+
+        self.waypointsPositions[:, :, 0] = waypointsX
+        self.waypointsPositions[:, :, 1] = waypointsY
+        self.waypointsPositions[:, :, 2] = waypointsZ
+
+        # Add the environment origins to the waypoints
+        self.waypointsPositions += self.envsOrigins
+
+        self.markersVisualizer = VisualizationMarkers(WAYPOINT_CFG)
+
+    def visualizeWaypoints(self):
+        # Visualize waypoints
+        linearizedPositions = self.waypointsPositions.view(self.nEnvs * self.nWaypoints, 3)
+        self.markersVisualizer.visualize(translations=linearizedPositions)
+
+    def randomizeWaipoints(self, env_ids: Sequence[int]):
+        # Randomize the y coordinates of the waypoints
+        waypointsY = (2 * torch.rand(len(env_ids), self.nWaypoints) - 1) * self.lineWidth
+        waypointsY = waypointsY.to(self.waypointsPositions.device)
+
+        # add the environment origins to the waypoints
+        waypointsY += self.envsOrigins[env_ids, :, 1]
+
+        # Update the y coordinates of the waypoints
+        self.waypointsPositions[env_ids, :, 1] = waypointsY
 
 
 class Fre25IsaaclabsymEnv(DirectRLEnv):
@@ -30,6 +89,15 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # self._pole_dof_idx, _ = self.robot.find_joints(self.cfg.pole_dof_name)
         self.wheels_dof_idx, _ = self.robot.find_joints(self.cfg.wheels_dofs_names)
         self.steering_dof_idx, _ = self.robot.find_joints(self.cfg.steering_dofs_names)
+
+        # initialize waypoints
+        # Compute the origins of the environments
+        envsOrigins = self.scene.env_origins
+        self.waypoints: WaypointHandler = WaypointHandler(
+            nEnvs=self.scene.num_envs,
+            envsOrigins=envsOrigins,
+        )
+        self.waypoints.initializeWaypoints()
 
         self.joint_pos = self.robot.data.joint_pos
         self.joint_vel = self.robot.data.joint_vel
@@ -50,8 +118,12 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
 
+        # Add waypoint markers to the scene
+        self.waypoint_markers = VisualizationMarkers(WAYPOINT_CFG)
+
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
         self.actions = actions.clone()
+        self.waypoints.visualizeWaypoints()
 
     def _apply_action(self) -> None:
         # Use the first half of the dofs for the wheels and the second half for the steering
@@ -135,6 +207,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.robot.write_root_pose_to_sim(default_root_state[:, :7], env_ids)
         self.robot.write_root_velocity_to_sim(default_root_state[:, 7:], env_ids)
         self.robot.write_joint_state_to_sim(joint_pos, joint_vel, None, env_ids)
+
+        self.waypoints.randomizeWaipoints(env_ids)
 
 
 @torch.jit.script
