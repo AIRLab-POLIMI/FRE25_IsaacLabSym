@@ -21,17 +21,21 @@ from .fre25_isaaclabsym_env_cfg import Fre25IsaaclabsymEnvCfg
 class Fre25IsaaclabsymEnv(DirectRLEnv):
     cfg: Fre25IsaaclabsymEnvCfg
 
-    def __init__(self, cfg: Fre25IsaaclabsymEnvCfg, render_mode: str | None = None, **kwargs):
+    def __init__(
+        self, cfg: Fre25IsaaclabsymEnvCfg, render_mode: str | None = None, **kwargs
+    ):
         super().__init__(cfg, render_mode, **kwargs)
 
-        self._cart_dof_idx, _ = self.robot.find_joints(self.cfg.cart_dof_name)
-        self._pole_dof_idx, _ = self.robot.find_joints(self.cfg.pole_dof_name)
+        # self._cart_dof_idx, _ = self.robot.find_joints(self.cfg.cart_dof_name)
+        # self._pole_dof_idx, _ = self.robot.find_joints(self.cfg.pole_dof_name)
+        self.wheels_dof_idx, _ = self.robot.find_joints(self.cfg.wheels_dofs_names)
+        self.steering_dof_idx, _ = self.robot.find_joints(self.cfg.steering_dofs_names)
 
         self.joint_pos = self.robot.data.joint_pos
         self.joint_vel = self.robot.data.joint_vel
 
     def _setup_scene(self):
-        self.robot = Articulation(self.cfg.robot_cfg)
+        self.robot: Articulation = Articulation(self.cfg.robot_cfg)
         # add ground plane
         spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg())
         # clone and replicate
@@ -46,15 +50,28 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.actions = actions.clone()
 
     def _apply_action(self) -> None:
-        self.robot.set_joint_effort_target(self.actions * self.cfg.action_scale, joint_ids=self._cart_dof_idx)
+        # Use the first half of the dofs for the wheels and the second half for the steering
+        wheel_actions = self.actions[:, : len(self.wheels_dof_idx)]
+        
+        #Normalize wheel actions to be 1
+        wheel_actions = torch.ones_like(wheel_actions) * 100000
+        self.robot.set_joint_velocity_target(
+            wheel_actions, joint_ids=self.wheels_dof_idx)
+
+        steering_actions = self.actions[:, len(self.wheels_dof_idx) :]
+        steering_actions = torch.zeros_like(steering_actions)
+        self.robot.set_joint_position_target(
+            steering_actions * 10, joint_ids=self.steering_dof_idx
+        )
+        pass
 
     def _get_observations(self) -> dict:
         obs = torch.cat(
             (
-                self.joint_pos[:, self._pole_dof_idx[0]].unsqueeze(dim=1),
-                self.joint_vel[:, self._pole_dof_idx[0]].unsqueeze(dim=1),
-                self.joint_pos[:, self._cart_dof_idx[0]].unsqueeze(dim=1),
-                self.joint_vel[:, self._cart_dof_idx[0]].unsqueeze(dim=1),
+                self.joint_pos[:, self.wheels_dof_idx[0]].unsqueeze(dim=1),
+                self.joint_vel[:, self.wheels_dof_idx[0]].unsqueeze(dim=1),
+                self.joint_pos[:, self.steering_dof_idx[0]].unsqueeze(dim=1),
+                self.joint_vel[:, self.steering_dof_idx[0]].unsqueeze(dim=1),
             ),
             dim=-1,
         )
@@ -68,10 +85,10 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             self.cfg.rew_scale_pole_pos,
             self.cfg.rew_scale_cart_vel,
             self.cfg.rew_scale_pole_vel,
-            self.joint_pos[:, self._pole_dof_idx[0]],
-            self.joint_vel[:, self._pole_dof_idx[0]],
-            self.joint_pos[:, self._cart_dof_idx[0]],
-            self.joint_vel[:, self._cart_dof_idx[0]],
+            self.joint_pos[:, self.wheels_dof_idx[0]],
+            self.joint_vel[:, self.wheels_dof_idx[0]],
+            self.joint_pos[:, self.steering_dof_idx[0]],
+            self.joint_vel[:, self.steering_dof_idx[0]],
             self.reset_terminated,
         )
         return total_reward
@@ -81,8 +98,15 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.joint_vel = self.robot.data.joint_vel
 
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        out_of_bounds = torch.any(torch.abs(self.joint_pos[:, self._cart_dof_idx]) > self.cfg.max_cart_pos, dim=1)
-        out_of_bounds = out_of_bounds | torch.any(torch.abs(self.joint_pos[:, self._pole_dof_idx]) > math.pi / 2, dim=1)
+        out_of_bounds = False
+        # torch.any(
+        #     torch.abs(self.joint_pos[:, self._cart_dof_idx]) > self.cfg.max_cart_pos,
+        #     dim=1,
+        # )
+        out_of_bounds = out_of_bounds | False 
+        # torch.any(
+        #     torch.abs(self.joint_pos[:, self._pole_dof_idx]) > math.pi / 2, dim=1
+        # )
         return out_of_bounds, time_out
 
     def _reset_idx(self, env_ids: Sequence[int] | None):
@@ -91,12 +115,12 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         super()._reset_idx(env_ids)
 
         joint_pos = self.robot.data.default_joint_pos[env_ids]
-        joint_pos[:, self._pole_dof_idx] += sample_uniform(
-            self.cfg.initial_pole_angle_range[0] * math.pi,
-            self.cfg.initial_pole_angle_range[1] * math.pi,
-            joint_pos[:, self._pole_dof_idx].shape,
-            joint_pos.device,
-        )
+        # joint_pos[:, self._pole_dof_idx] += sample_uniform(
+        #     self.cfg.initial_pole_angle_range[0] * math.pi,
+        #     self.cfg.initial_pole_angle_range[1] * math.pi,
+        #     joint_pos[:, self._pole_dof_idx].shape,
+        #     joint_pos.device,
+        # )
         joint_vel = self.robot.data.default_joint_vel[env_ids]
 
         default_root_state = self.robot.data.default_root_state[env_ids]
@@ -125,8 +149,16 @@ def compute_rewards(
 ):
     rew_alive = rew_scale_alive * (1.0 - reset_terminated.float())
     rew_termination = rew_scale_terminated * reset_terminated.float()
-    rew_pole_pos = rew_scale_pole_pos * torch.sum(torch.square(pole_pos).unsqueeze(dim=1), dim=-1)
-    rew_cart_vel = rew_scale_cart_vel * torch.sum(torch.abs(cart_vel).unsqueeze(dim=1), dim=-1)
-    rew_pole_vel = rew_scale_pole_vel * torch.sum(torch.abs(pole_vel).unsqueeze(dim=1), dim=-1)
-    total_reward = rew_alive + rew_termination + rew_pole_pos + rew_cart_vel + rew_pole_vel
+    rew_pole_pos = rew_scale_pole_pos * torch.sum(
+        torch.square(pole_pos).unsqueeze(dim=1), dim=-1
+    )
+    rew_cart_vel = rew_scale_cart_vel * torch.sum(
+        torch.abs(cart_vel).unsqueeze(dim=1), dim=-1
+    )
+    rew_pole_vel = rew_scale_pole_vel * torch.sum(
+        torch.abs(pole_vel).unsqueeze(dim=1), dim=-1
+    )
+    total_reward = (
+        rew_alive + rew_termination + rew_pole_pos + rew_cart_vel + rew_pole_vel
+    )
     return total_reward
