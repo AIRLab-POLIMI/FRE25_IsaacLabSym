@@ -18,6 +18,7 @@ from isaaclab.markers import VisualizationMarkers
 
 from .fre25_isaaclabsym_env_cfg import Fre25IsaaclabsymEnvCfg
 from .Waypoint import WAYPOINT_CFG
+# import torch.autograd.profiler as profiler
 
 
 class WaypointHandler:
@@ -29,10 +30,7 @@ class WaypointHandler:
         self.nWaypoints = nWaypoints
 
         assert envsOrigins.shape == (nEnvs, 3), "envsOrigins must be of shape (nEnvs, 3)"
-        print(f"envsOrigins: {envsOrigins}")
         self.envsOrigins: torch.Tensor = envsOrigins.unsqueeze(1).repeat(1, self.nWaypoints, 1)
-        print(f"envsOrigins: {self.envsOrigins}")
-        print(f"envsOrigins shape: {self.envsOrigins.shape}")
 
         assert lineLength >= 0, "Line length must be greater than 0"
         self.lineLength = lineLength
@@ -44,7 +42,12 @@ class WaypointHandler:
 
         self.waypointsPositions = torch.zeros((nEnvs, nWaypoints, 3), dtype=torch.float32, device=envsOrigins.device)
 
-        self.currentWaypointIndices = torch.zeros((nEnvs, 1), dtype=torch.int32, device=envsOrigins.device)
+        # The indices of the current waypoint for each environment
+        self.currentWaypointIndices = torch.zeros((nEnvs, 2), dtype=torch.int32, device=envsOrigins.device)
+        self.currentWaypointIndices[:, 0] = torch.arange(nEnvs, device=envsOrigins.device)
+
+        # The position of the current waypoint for each environment
+        self.currentWaypointPositions = torch.zeros((nEnvs, 3), dtype=torch.float32, device=envsOrigins.device)
         pass
 
     def initializeWaypoints(self):
@@ -62,6 +65,12 @@ class WaypointHandler:
 
         self.markersVisualizer = VisualizationMarkers(WAYPOINT_CFG)
 
+        # Select the current waypoint for each environment
+        self.currentWaypointPositions = self.waypointsPositions[self.currentWaypointIndices[:, 0], self.currentWaypointIndices[:, 1]]
+
+        # update current marker
+        self.updateCurrentMarker()
+
     def visualizeWaypoints(self):
         # Visualize waypoints
         linearizedPositions = self.waypointsPositions.view(self.nEnvs * self.nWaypoints, 3)
@@ -69,8 +78,7 @@ class WaypointHandler:
 
     def randomizeWaipoints(self, env_ids: Sequence[int]):
         # Randomize the y coordinates of the waypoints
-        waypointsY = (2 * torch.rand(len(env_ids), self.nWaypoints) - 1) * self.lineWidth
-        waypointsY = waypointsY.to(self.waypointsPositions.device)
+        waypointsY = (2 * torch.rand(len(env_ids), self.nWaypoints, device=self.waypointsPositions.device) - 1) * self.lineWidth
 
         # add the environment origins to the waypoints
         waypointsY += self.envsOrigins[env_ids, :, 1]
@@ -80,9 +88,24 @@ class WaypointHandler:
 
     def updateCurrentMarker(self):
         indexes = torch.zeros((self.nEnvs, self.nWaypoints), dtype=torch.int, device=self.waypointsPositions.device)
-        indexes[:, self.currentWaypointIndices] = 1
+        indexes[self.currentWaypointIndices[:, 0], self.currentWaypointIndices[:, 1]] = 1
         indexes = indexes.view(self.nEnvs * self.nWaypoints)
         self.markersVisualizer.visualize(marker_indices=indexes)
+
+    def diffToCurrentWaypoint(self, robot_pos_xy: torch.Tensor) -> torch.Tensor:
+        """
+        For each environment, compute the difference between the robot position and the current waypoint position.
+
+        Args:
+            robot_pos_xy (torch.Tensor): The robot position in the xy plane. Shape: (nEnvs, 2)
+        Returns:
+            torch.Tensor: The difference between the robot position and the current waypoint position. Shape: (nEnvs, 2)
+        """
+        # assert robot_pos_xy.shape == (self.nEnvs, 2), "robot_pos_xy must be of shape (nEnvs, 2), but got {}".format(robot_pos_xy.shape)
+        # assert currentWaypointsPositions.shape == (self.nEnvs, 2), "currentWaypointsPositions must be of shape (nEnvs, 2) but got {}".format(currentWaypointsPositions.shape)
+        diff = robot_pos_xy - self.currentWaypointPositions[:, :2]
+        # assert diff.shape == (self.nEnvs, 2), "diff must be of shape (nEnvs, 2)"
+        return diff
 
 
 class Fre25IsaaclabsymEnv(DirectRLEnv):
@@ -95,8 +118,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # self._cart_dof_idx, _ = self.robot.find_joints(self.cfg.cart_dof_name)
         # self._pole_dof_idx, _ = self.robot.find_joints(self.cfg.pole_dof_name)
-        self.wheels_dof_idx, _ = self.robot.find_joints(self.cfg.wheels_dofs_names)
-        self.steering_dof_idx, _ = self.robot.find_joints(self.cfg.steering_dofs_names)
+        self.wheels_dof_idx, _ = self.robots.find_joints(self.cfg.wheels_dofs_names)
+        self.steering_dof_idx, _ = self.robots.find_joints(self.cfg.steering_dofs_names)
 
         # initialize waypoints
         # Compute the origins of the environments
@@ -107,11 +130,11 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         )
         self.waypoints.initializeWaypoints()
 
-        self.joint_pos = self.robot.data.joint_pos
-        self.joint_vel = self.robot.data.joint_vel
+        self.joint_pos = self.robots.data.joint_pos
+        self.joint_vel = self.robots.data.joint_vel
 
     def _setup_scene(self):
-        self.robot: Articulation = Articulation(self.cfg.robot_cfg)
+        self.robots: Articulation = Articulation(self.cfg.robot_cfg)
 
         # add ground plane
         spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg())
@@ -120,7 +143,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.scene.clone_environments(copy_from_source=False)
 
         # add articulation to scene
-        self.scene.articulations["robot"] = self.robot
+        self.scene.articulations["robot"] = self.robots
 
         # add lights
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
@@ -138,13 +161,13 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Use the first half of the dofs for the wheels and the second half for the steering
         steering_actions = self.actions.repeat(1, len(self.steering_dof_idx)) * self.cfg.steering_scale * 3.14 / 180
         # steering_actions = self.actions[:, len(self.wheels_dof_idx) :]
-        self.robot.set_joint_position_target(
+        self.robots.set_joint_position_target(
             steering_actions, joint_ids=self.steering_dof_idx
         )
 
         # Normalize wheel actions to be 1
         wheel_actions = torch.ones_like(steering_actions) * self.cfg.wheels_effort_scale
-        self.robot.set_joint_effort_target(
+        self.robots.set_joint_effort_target(
             wheel_actions, joint_ids=self.wheels_dof_idx)
 
         pass
@@ -160,6 +183,13 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             dim=-1,
         )
         observations = {"policy": obs}
+        robot_pose = self.robots.data.root_state_w[:, :2]
+        # with profiler.profile(record_shapes=True) as prof:
+        diffs = self.waypoints.diffToCurrentWaypoint(robot_pose)
+        # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
+        print(f"Robot diffs: {diffs}")
+        # print(f"Robot pose: {robot_pose}")
+
         return observations
 
     def _get_rewards(self) -> torch.Tensor:
@@ -178,8 +208,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         return total_reward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
-        self.joint_pos = self.robot.data.joint_pos
-        self.joint_vel = self.robot.data.joint_vel
+        self.joint_pos = self.robots.data.joint_pos
+        self.joint_vel = self.robots.data.joint_vel
 
         time_out = self.episode_length_buf >= self.max_episode_length - 1
         out_of_bounds = False
@@ -195,27 +225,27 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
     def _reset_idx(self, env_ids: Sequence[int] | None):
         if env_ids is None:
-            env_ids = self.robot._ALL_INDICES
+            env_ids = self.robots._ALL_INDICES
         super()._reset_idx(env_ids)
 
-        joint_pos = self.robot.data.default_joint_pos[env_ids]
+        joint_pos = self.robots.data.default_joint_pos[env_ids]
         # joint_pos[:, self._pole_dof_idx] += sample_uniform(
         #     self.cfg.initial_pole_angle_range[0] * math.pi,
         #     self.cfg.initial_pole_angle_range[1] * math.pi,
         #     joint_pos[:, self._pole_dof_idx].shape,
         #     joint_pos.device,
         # )
-        joint_vel = self.robot.data.default_joint_vel[env_ids]
+        joint_vel = self.robots.data.default_joint_vel[env_ids]
 
-        default_root_state = self.robot.data.default_root_state[env_ids]
+        default_root_state = self.robots.data.default_root_state[env_ids]
         default_root_state[:, :3] += self.scene.env_origins[env_ids]
 
         self.joint_pos[env_ids] = joint_pos
         self.joint_vel[env_ids] = joint_vel
 
-        self.robot.write_root_pose_to_sim(default_root_state[:, :7], env_ids)
-        self.robot.write_root_velocity_to_sim(default_root_state[:, 7:], env_ids)
-        self.robot.write_joint_state_to_sim(joint_pos, joint_vel, None, env_ids)
+        self.robots.write_root_pose_to_sim(default_root_state[:, :7], env_ids)
+        self.robots.write_root_velocity_to_sim(default_root_state[:, 7:], env_ids)
+        self.robots.write_joint_state_to_sim(joint_pos, joint_vel, None, env_ids)
 
         self.waypoints.randomizeWaipoints(env_ids)
 
