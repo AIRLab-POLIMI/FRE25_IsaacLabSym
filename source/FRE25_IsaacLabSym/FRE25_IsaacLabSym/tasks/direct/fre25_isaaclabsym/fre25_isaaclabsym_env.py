@@ -29,6 +29,7 @@ from .fre25_isaaclabsym_env_cfg import Fre25IsaaclabsymEnvCfg
 from .WaypointRelated.Waypoint import WAYPOINT_CFG
 from .WaypointRelated.WaypointHandler import WaypointHandler
 from .PlantRelated.PlantHandler import PlantHandler
+from .PathHandler import PathHandler
 # import torch.autograd.profiler as profiler
 
 
@@ -40,8 +41,6 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
     ):
         super().__init__(cfg, render_mode, **kwargs)
 
-        # self._cart_dof_idx, _ = self.robot.find_joints(self.cfg.cart_dof_name)
-        # self._pole_dof_idx, _ = self.robot.find_joints(self.cfg.pole_dof_name)
         self.wheels_dof_idx, _ = self.robots.find_joints(self.cfg.wheels_dofs_names)
         self.steering_dof_idx, _ = self.robots.find_joints(self.cfg.steering_dofs_names)
 
@@ -75,6 +74,20 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Add waypoint markers to the scene
         self.waypoint_markers = VisualizationMarkers(WAYPOINT_CFG)
+
+        # Build the paths
+        self.paths = PathHandler(
+            device=self.device,
+            nEnvs=self.scene.num_envs,
+            nPaths=3,
+            pathsSpacing=2.0,
+            nControlPoints=10,
+            pathLength=10.0,
+            pathWidth=.5,
+            pointNoiseStd=0.1,
+        )
+
+        self.paths.generatePath()
 
         # Add Plants to the scene
         self.plants = PlantHandler(nPlants=100, envsOrigins=self.scene.env_origins)
@@ -174,8 +187,11 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         self.waypoints.resetWaypoints(env_ids)
 
+        # Generate new path for the environment
+        self.paths.generatePath()
+
         # Randomize plant positions
-        self.plants.randomizePlantsPositions(env_ids)
+        self.plants.randomizePlantsPositions(env_ids, self.paths)
 
 
 @torch.jit.script
