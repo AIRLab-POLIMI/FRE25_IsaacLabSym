@@ -2,6 +2,8 @@ import torch
 from collections.abc import Sequence
 from .Waypoint import WAYPOINT_CFG
 from isaaclab.markers import VisualizationMarkers
+from ..CommandBuffer import CommandBuffer
+from ..PathHandler import PathHandler
 
 
 class WaypointHandler:
@@ -9,18 +11,25 @@ class WaypointHandler:
         self,
         nEnvs: int,
         envsOrigins: torch.Tensor,
-        nWaypoints: int = 10,
         lineLength: float = 10,
         lineWidth: float = 1.0,
         lineZ: float = 0.0,
         waipointReachedEpsilon: float = 0.5,
         maxDistanceToWaypoint: float = 1.5,
+        commandBuffer: CommandBuffer = None,
+        pathHandler: PathHandler = None
     ):
+        assert commandBuffer is not None, "commandBuffer must be provided"
+        self.commandBuffer = commandBuffer
+
+        assert pathHandler is not None, "pathHandler must be provided"
+        self.pathHandler = pathHandler
+
         assert nEnvs > 0, "Number of environments must be greater than 0, got {}".format(nEnvs)
         self.nEnvs = nEnvs
 
-        assert nWaypoints > 0, "Number of waypoints must be greater than 0, got {}".format(nWaypoints)
-        self.nWaypoints = nWaypoints
+        # The first row of plants adds 2 waypoints (start and end), each command adds 2 waypoints (landing row start and end)
+        self.nWaypoints = (self.commandBuffer.commandsLength + 1) * 2
 
         assert envsOrigins.shape == (
             nEnvs,
@@ -55,7 +64,7 @@ class WaypointHandler:
         self.maxDistanceToWaypoint = maxDistanceToWaypoint
 
         self.waypointsPositions = torch.zeros(
-            (nEnvs, nWaypoints, 3), dtype=torch.float32, device=envsOrigins.device
+            (nEnvs, self.nWaypoints, 3), dtype=torch.float32, device=envsOrigins.device
         )
 
         # The indices of the current waypoint for each environment
@@ -84,14 +93,14 @@ class WaypointHandler:
         self.taskCompleted = torch.zeros(
             (nEnvs), dtype=torch.bool, device=envsOrigins.device
         )
-        pass
 
     def initializeWaypoints(self):
         # Initialize waypoints in a straight line
-        waypointsX = torch.linspace(0, self.lineLength, self.nWaypoints).repeat(
-            self.nEnvs, 1
-        )
-        waypointsY = (2 * torch.rand(self.nEnvs, self.nWaypoints) - 1) * self.lineWidth
+        waypointsX = torch.zeros((self.nEnvs, self.nWaypoints), device=self.waypointsPositions.device)
+        waypointsX[:, 0::2] = 0  # even waypoints are the start of each row
+        waypointsX[:, 1::2] = self.pathHandler.pathLength  # odd waypoints are the end of each row
+
+        waypointsY = torch.zeros((self.nEnvs, self.nWaypoints), device=self.waypointsPositions.device)
         waypointsZ = torch.full((self.nEnvs, self.nWaypoints), self.lineZ)
 
         self.waypointsPositions[:, :, 0] = waypointsX
@@ -134,9 +143,45 @@ class WaypointHandler:
         # Update the y coordinates of the waypoints
         self.waypointsPositions[env_ids, :, 1] = waypointsY
 
+    def setWaypointsFromPathAndCommands(self, env_ids: Sequence[int]):
+        pathLength = self.pathHandler.pathLength
+        pathWidth = self.pathHandler.pathsSpacing
+
+        turnsMagnitudes = self.commandBuffer.commandBuffer[env_ids]  # (len(env_ids), commandsLength)
+        turnDirections = self.commandBuffer.turnRightBuffer[env_ids]  # (len(env_ids), commandsLength)
+
+        # Regardless of the commands the waypoints X positions are always the same
+
+        # turnDirections is a bool tensor relative to the robot's frame of reference (is it right?)
+        # now I want to convert it in a global Y sign (+Y or -Y)
+        # To do this, since the robot always goes forward, backward, forward, backward... I can just invert the oddly numbered commands
+        globalTurnDirections = turnDirections.clone()
+        globalTurnDirections[:, 1::2] = ~globalTurnDirections[:, 1::2]
+
+        # Now I can convert it the bool (is it -Y?) to a float (-1 or 1)
+        globalTurnDirectionsSign = -(globalTurnDirections.float() * 2 - 1)  # convert to -1 and 1
+
+        # Now I can compute the delta Y for each command by multiplying the turnsMagnitudes by the globalTurnDirectionsSign
+        deltaY = turnsMagnitudes * globalTurnDirectionsSign * pathWidth  # (len(env_ids), commandsLength)
+
+        # Since the robot starts at (0,0), I can compute the Y positions of the rows by cumulatively summing the deltaY
+        rowsY = torch.cumsum(deltaY, dim=1)  # (len(env_ids), commandsLength)
+
+        # Now I can compute the waypoints Y positions
+        waypointsY = torch.zeros((len(env_ids), self.nWaypoints), device=self.waypointsPositions.device)
+        waypointsY[:, 0:2] = 0  # first two waypoints have Y=0 since the robot starts at (0,0)
+        waypointsY[:, 2::2] = rowsY  # even waypoints are the start of each row
+        waypointsY[:, 3::2] = rowsY  # odd waypoints are the end of each row
+
+        # add the environment origins to the waypoints
+        waypointsY += self.envsOrigins[env_ids, :, 1]
+
+        # Update the y coordinates of the waypoints
+        self.waypointsPositions[env_ids, :, 1] = waypointsY
+
     def resetWaypoints(self, env_ids: Sequence[int]):
         # Randomize the waypoints for the given environment ids
-        self.randomizeWaipoints(env_ids)
+        self.setWaypointsFromPathAndCommands(env_ids)
 
         # Reset the current waypoint indices for the given environment ids
         self.currentWaypointIndices[env_ids, 1] = 0

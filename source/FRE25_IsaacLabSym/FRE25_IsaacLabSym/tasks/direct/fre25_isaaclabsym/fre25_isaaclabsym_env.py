@@ -30,6 +30,7 @@ from .WaypointRelated.Waypoint import WAYPOINT_CFG
 from .WaypointRelated.WaypointHandler import WaypointHandler
 from .PlantRelated.PlantHandler import PlantHandler
 from .PathHandler import PathHandler
+from .CommandBuffer import CommandBuffer
 # import torch.autograd.profiler as profiler
 import isaaclab.sim.schemas as schemas
 from isaaclab.utils.math import axis_angle_from_quat as quat2axis
@@ -45,15 +46,6 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         self.wheels_dof_idx, _ = self.robots.find_joints(self.cfg.wheels_dofs_names)
         self.steering_dof_idx, _ = self.robots.find_joints(self.cfg.steering_dofs_names)
-
-        # initialize waypoints
-        # Compute the origins of the environments
-        envsOrigins = self.scene.env_origins
-        self.waypoints: WaypointHandler = WaypointHandler(
-            nEnvs=self.scene.num_envs,
-            envsOrigins=envsOrigins,
-        )
-        self.waypoints.initializeWaypoints()
 
         self.joint_pos = self.robots.data.joint_pos
         self.joint_vel = self.robots.data.joint_vel
@@ -77,19 +69,38 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Add waypoint markers to the scene
         self.waypoint_markers = VisualizationMarkers(WAYPOINT_CFG)
 
+        # Initialize command buffer
+        self.commandBuffer = CommandBuffer(
+            nEnvs=self.scene.num_envs,
+            commandsLength=3,
+            maxRows=2,
+            device=self.device,
+        )
+        self.commandBuffer.randomizeCommands()
+
         # Build the paths
         self.paths = PathHandler(
             device=self.device,
             nEnvs=self.scene.num_envs,
-            nPaths=3,
+            nPaths=6,
             pathsSpacing=2.0,
             nControlPoints=10,
-            pathLength=10.0,
+            pathLength=5.0,
             pathWidth=.5,
             pointNoiseStd=0.2,
         )
 
         self.paths.generatePath()
+
+        # Initialize waypoints
+        self.waypoints: WaypointHandler = WaypointHandler(
+            nEnvs=self.scene.num_envs,
+            envsOrigins=self.scene.env_origins,
+            commandBuffer=self.commandBuffer,
+            pathHandler=self.paths,
+            maxDistanceToWaypoint=self.paths.pathLength * 1.5,
+        )
+        self.waypoints.initializeWaypoints()
 
         # Add Plants to the scene
         self.plants = PlantHandler(
@@ -107,8 +118,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
     def _apply_action(self) -> None:
         # Use the first half of the dofs for the wheels and the second half for the steering
+        steering_actions = self.actions[:, [0]]
         steering_actions = (
-            self.actions.repeat(1, len(self.steering_dof_idx))
+            steering_actions.repeat(1, len(self.steering_dof_idx))
             * self.cfg.steering_scale
             * 3.14
             / 180
@@ -125,6 +137,14 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             wheel_actions, joint_ids=self.wheels_dof_idx
         )
 
+        # Update the command buffer
+        command_step_actions = self.actions[:, 1]
+        command_step_actions = torch.clamp(command_step_actions, 0, 1)
+
+        # If the action is > 0.5, advance the command buffer by one step
+        advance_command = command_step_actions > 0.5
+        self.commandBuffer.stepCommands(advance_command)
+
         pass
 
     def _get_observations(self) -> dict:
@@ -137,10 +157,15 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             robot_pose,
             robotZs,
         )
+
+        # get the current commands
+        currentCommands = self.commandBuffer.getCurrentCommands()
+
         obs = torch.cat(
             (
                 self.joint_pos[:, self.steering_dof_idx],
-                lidar
+                lidar,
+                currentCommands
             ),
             dim=-1,
         )
@@ -161,21 +186,35 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         return totalReward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
+        DEBUG = False
         # The episode has reached the maximum length
         time_out = self.episode_length_buf >= self.max_episode_length - 1
+        if DEBUG and any(time_out):
+            print(f"Episode length reached: {self.max_episode_length} steps")
 
         # the robot has reached all the waypoints
         reached_all_waypoints = self.waypoints.taskCompleted
+        if DEBUG and any(reached_all_waypoints):
+            print(f"Task completed: reached all waypoints")
 
         # The robot is too far from the current waypoint
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
+        if DEBUG and any(out_of_bounds):
+            print(f"Episode terminated: robot out of bounds")
 
         # Check for plant collisions
         robot_pose = self.robots.data.root_state_w[:, :2]
         plant_collisions = self.plants.detectPlantCollision()
+        if DEBUG and any(plant_collisions):
+            print(f"Episode terminated: robot collided with a plant")
+
+        # Completed command buffer
+        completed_command_buffer = self.commandBuffer.dones()
+        if DEBUG and any(completed_command_buffer):
+            print(f"Task Failed: completed command buffer")
 
         taskCompleted = reached_all_waypoints | time_out
-        taskFailed = out_of_bounds | plant_collisions
+        taskFailed = out_of_bounds | plant_collisions | completed_command_buffer
 
         return taskFailed, taskCompleted
 
@@ -210,6 +249,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Randomize plant positions
         self.plants.randomizePlantsPositions(env_ids, self.paths)
+
+        # Reset command buffer
+        self.commandBuffer.randomizeCommands(env_ids)
 
 
 @torch.jit.script

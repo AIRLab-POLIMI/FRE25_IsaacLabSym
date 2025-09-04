@@ -30,7 +30,7 @@ class PathHandler:
         self.pointNoiseStd = pointNoiseStd
 
     def generatePath(self):
-        # To do: find a way to generate the path just for some environments
+        # TODO: find a way to generate the path just for some environments
         t = torch.linspace(0, 1, self.nControlPoints, device=self.device)
         controlsX = torch.linspace(0, self.pathLength, self.nControlPoints, device=self.device)
         controlsX = controlsX.repeat(self.nEnvs, 1)
@@ -58,7 +58,7 @@ class PathHandler:
 
         # Sample the path number
         pathNumber = torch.randint(0, self.nPaths, (envIds.shape[0], nPoints,), device=self.device)
-        points[:, :, 1] += (pathNumber - 0.5) * self.pathsSpacing
+        points[:, :, 1] += (pathNumber - 0.5 - (self.nPaths - 1) // 2) * self.pathsSpacing
 
         # Gaussian noise
         noise = torch.randn_like(points, device=self.device) * self.pointNoiseStd
