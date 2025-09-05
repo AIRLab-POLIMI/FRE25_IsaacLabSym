@@ -102,6 +102,9 @@ class CommandBuffer:
         """
         self.commandBuffer[env_ids, self.indexBuffer[env_ids]] -= 1
 
+        # clamp to avoid negative values
+        self.commandBuffer = torch.clamp(self.commandBuffer, min=0)
+
         # If the current command reaches 0, move to the next command
         done_mask = self.commandBuffer[env_ids, self.indexBuffer[env_ids]] <= 0
         self.indexBuffer[env_ids] += done_mask.int()
