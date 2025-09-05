@@ -85,7 +85,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             nPaths=6,
             pathsSpacing=2.0,
             nControlPoints=10,
-            pathLength=5.0,
+            pathLength=2.5,
             pathWidth=.5,
             pointNoiseStd=0.2,
         )
@@ -132,13 +132,13 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         )
 
         # Normalize wheel actions to be 1
-        wheel_actions = torch.ones_like(steering_actions) * self.cfg.wheels_effort_scale
+        wheel_actions = self.actions[:, [1]] * self.cfg.wheels_effort_scale
         self.robots.set_joint_velocity_target(
             wheel_actions, joint_ids=self.wheels_dof_idx
         )
 
         # Update the command buffer
-        command_step_actions = self.actions[:, 1]
+        command_step_actions = self.actions[:, -1]
         command_step_actions = torch.clamp(command_step_actions, 0, 1)
 
         # If the action is > 0.5, advance the command buffer by one step
@@ -181,7 +181,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
     def _get_rewards(self) -> torch.Tensor:
         stayAliveReward = (1.0 - self.reset_terminated.float())
-        waypointReward = self.waypoints.currentWaypointIndices[:, 1].float() * 0.1
+        waypointReward = self.waypoints.currentWaypointIndices[:, 1].float()
         totalReward = stayAliveReward + waypointReward
         return totalReward
 
@@ -210,6 +210,10 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Completed command buffer
         completed_command_buffer = self.commandBuffer.dones()
+        #######################
+        #########################
+        ########################
+        completed_command_buffer = torch.zeros_like(completed_command_buffer)
         if DEBUG and any(completed_command_buffer):
             print(f"Task Failed: completed command buffer")
 
@@ -252,33 +256,3 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Reset command buffer
         self.commandBuffer.randomizeCommands(env_ids)
-
-
-@torch.jit.script
-def compute_rewards(
-    rew_scale_alive: float,
-    rew_scale_terminated: float,
-    rew_scale_pole_pos: float,
-    rew_scale_cart_vel: float,
-    rew_scale_pole_vel: float,
-    pole_pos: torch.Tensor,
-    pole_vel: torch.Tensor,
-    cart_pos: torch.Tensor,
-    cart_vel: torch.Tensor,
-    reset_terminated: torch.Tensor,
-):
-    rew_alive = rew_scale_alive * (1.0 - reset_terminated.float())
-    rew_termination = rew_scale_terminated * reset_terminated.float()
-    rew_pole_pos = rew_scale_pole_pos * torch.sum(
-        torch.square(pole_pos).unsqueeze(dim=1), dim=-1
-    )
-    rew_cart_vel = rew_scale_cart_vel * torch.sum(
-        torch.abs(cart_vel).unsqueeze(dim=1), dim=-1
-    )
-    rew_pole_vel = rew_scale_pole_vel * torch.sum(
-        torch.abs(pole_vel).unsqueeze(dim=1), dim=-1
-    )
-    total_reward = (
-        rew_alive + rew_termination + rew_pole_pos + rew_cart_vel + rew_pole_vel
-    )
-    return total_reward

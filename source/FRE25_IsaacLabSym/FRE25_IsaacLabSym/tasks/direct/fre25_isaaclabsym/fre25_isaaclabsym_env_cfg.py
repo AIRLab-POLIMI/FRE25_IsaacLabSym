@@ -19,7 +19,7 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     decimation = 2
     episode_length_s = 30.0
     # - spaces definition
-    action_space = 2  # crab direction, command buffer step
+    action_space = (2, {2})
     observation_space = 27  # 4 steering joints + 20 lidar + 3 command buffer (maxRows=2 + 1)
     state_space = 0
 

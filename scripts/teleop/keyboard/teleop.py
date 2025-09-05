@@ -1,35 +1,37 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
+# Copyright (c) 2022-2025, Paolo Ginefra.
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Script to an environment with random action agent."""
+"""
+This script will allow to control the robot with keyboard inputs.
+It will use just one environment.
+
+This has been developed for FRE25_IsaacLabSym environment, and it is not meant to work with other environments.
+"""
 
 """Launch Isaac Sim Simulator first."""
 
 import argparse
 
-from isaaclab.app import AppLauncher
+from isaaclab.app import AppLauncher  # type: ignore
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Random agent for Isaac Lab environments.")
 parser.add_argument(
     "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
 )
-parser.add_argument("--num_envs", type=int, default=None, help="Number of environments to simulate.")
-parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
 args_cli = parser.parse_args()
 
-# args_cli.headless = True  # run in headless mode
-# args_cli.livestream = 1  # livestream to web
+# Set the number of environments to 1
+args_cli.num_envs = 1
 
-args_cli.livestream_config = {
-    "publicEndpointAddress": "131.175.28.195",
-    "port": 49100
-}
+# Set the task to FRE25_IsaacLabSym
+args_cli.task = "Fre25-Isaaclabsym-Direct-v0"
+
 # launch omniverse app
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
@@ -39,10 +41,13 @@ simulation_app = app_launcher.app
 import gymnasium as gym
 import torch
 
-import isaaclab_tasks  # noqa: F401
-from isaaclab_tasks.utils import parse_env_cfg
+import isaaclab_tasks  # type: ignore # noqa: F401
+from isaaclab_tasks.utils import parse_env_cfg  # type: ignore
+from isaaclab.devices.device_base import DeviceBase
 
 import FRE25_IsaacLabSym.tasks  # noqa: F401
+# Resolve KeyboardManager import: prefer package-relative import, fallback to absolute import when run as a script
+from FRE25_IsaacLabSym.utils.KeyboardDevice import KeyboardManager
 
 
 def main():
@@ -59,14 +64,18 @@ def main():
     print(f"[INFO]: Gym action space: {env.action_space}")
     # reset environment
     env.reset()
+    keyboardManager = KeyboardManager()
+    keyboardManager.reset()
     # simulate environment
     while simulation_app.is_running():
         # run everything in inference mode
         with torch.inference_mode():
+            kinematicCommands, stepCommand = keyboardManager.advance()
+
             # sample actions from -1 to 1
             actions = env.action_space.sample()
-            continousActions = torch.tensor(actions[0], device=env.unwrapped.device)
-            discreteActions = torch.tensor(actions[1], device=env.unwrapped.device)[:, None]
+            continousActions = torch.tensor([kinematicCommands], device=env.unwrapped.device)  # type: ignore
+            discreteActions = torch.tensor([stepCommand], device=env.unwrapped.device)[:, None]  # type: ignore
             actions = torch.cat([continousActions, discreteActions], dim=1)
             # apply actions
             env.step(actions)
@@ -78,5 +87,6 @@ def main():
 if __name__ == "__main__":
     # run the main function
     main()
+
     # close sim app
     simulation_app.close()

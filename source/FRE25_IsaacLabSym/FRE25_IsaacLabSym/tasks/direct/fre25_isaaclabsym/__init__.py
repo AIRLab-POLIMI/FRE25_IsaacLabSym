@@ -13,7 +13,7 @@ from . import agents
 
 
 gym.register(
-    id="Template-Fre25-Isaaclabsym-Direct-v0",
+    id="Fre25-Isaaclabsym-Direct-v0",
     entry_point=f"{__name__}.fre25_isaaclabsym_env:Fre25IsaaclabsymEnv",
     disable_env_checker=True,
     kwargs={
