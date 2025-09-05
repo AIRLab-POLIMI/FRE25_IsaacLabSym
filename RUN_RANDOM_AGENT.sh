@@ -1,0 +1,1 @@
+python scripts/random_agent.py --task=Fre25-Isaaclabsym-Direct-v0 --num_envs 2
