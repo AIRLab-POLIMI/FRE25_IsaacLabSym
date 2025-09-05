@@ -1,0 +1,1 @@
+tensorboard --logdir=./logs/skrl/fre25_isaaclabsym_ppo
