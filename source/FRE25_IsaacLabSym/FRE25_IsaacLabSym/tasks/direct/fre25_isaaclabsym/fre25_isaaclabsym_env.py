@@ -50,6 +50,11 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.joint_pos = self.robots.data.joint_pos
         self.joint_vel = self.robots.data.joint_vel
 
+        # steering buffer to allow differential control
+        self.steering_buffer = torch.zeros(
+            (self.num_envs, len(self.steering_dof_idx)), device=self.device
+        )
+
     def _setup_scene(self):
         self.robots: Articulation = Articulation(self.cfg.robot_cfg)
 
@@ -125,10 +130,16 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             * 3.14
             / 180
         )
+        self.steering_buffer += steering_actions
+        self.steering_buffer = torch.clamp(
+            self.steering_buffer,
+            -self.cfg.steering_scale * 3.14 / 180,
+            self.cfg.steering_scale * 3.14 / 180,
+        )
         # steering_actions = self.actions[:, len(self.wheels_dof_idx) :]
         # steering_actions = torch.zeros_like(steering_actions)
         self.robots.set_joint_position_target(
-            steering_actions, joint_ids=self.steering_dof_idx
+            self.steering_buffer, joint_ids=self.steering_dof_idx
         )
 
         # Normalize wheel actions to be 1
@@ -256,3 +267,6 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Reset command buffer
         self.commandBuffer.randomizeCommands(env_ids)
+
+        # Reset steering buffer
+        self.steering_buffer[env_ids] = 0.0
