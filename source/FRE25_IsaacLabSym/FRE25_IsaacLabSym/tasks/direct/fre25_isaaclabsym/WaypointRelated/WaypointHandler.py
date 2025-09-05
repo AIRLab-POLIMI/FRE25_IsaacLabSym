@@ -97,8 +97,13 @@ class WaypointHandler:
     def initializeWaypoints(self):
         # Initialize waypoints in a straight line
         waypointsX = torch.zeros((self.nEnvs, self.nWaypoints), device=self.waypointsPositions.device)
-        waypointsX[:, 0::2] = 0  # even waypoints are the start of each row
-        waypointsX[:, 1::2] = self.pathHandler.pathLength  # odd waypoints are the end of each row
+
+        # Since the robot goes forward, backward, forward, backward... the X positions of the waypoints are always the same
+        # and they alternate between 0 and lineLength as 0, l, l, 0, 0, l, l, 0...
+        waypointsX[:, 0::4] = 0  # even waypoints are the start of each row
+        waypointsX[:, 1::4] = self.pathHandler.pathLength  # odd waypoints are the end of each row
+        waypointsX[:, 2::4] = self.pathHandler.pathLength  # even waypoints are the start of each row
+        waypointsX[:, 3::4] = 0  # odd waypoints are the end of each row
 
         waypointsY = torch.zeros((self.nEnvs, self.nWaypoints), device=self.waypointsPositions.device)
         waypointsZ = torch.full((self.nEnvs, self.nWaypoints), self.lineZ)
@@ -144,7 +149,6 @@ class WaypointHandler:
         self.waypointsPositions[env_ids, :, 1] = waypointsY
 
     def setWaypointsFromPathAndCommands(self, env_ids: Sequence[int]):
-        pathLength = self.pathHandler.pathLength
         pathWidth = self.pathHandler.pathsSpacing
 
         turnsMagnitudes = self.commandBuffer.commandBuffer[env_ids]  # (len(env_ids), commandsLength)
