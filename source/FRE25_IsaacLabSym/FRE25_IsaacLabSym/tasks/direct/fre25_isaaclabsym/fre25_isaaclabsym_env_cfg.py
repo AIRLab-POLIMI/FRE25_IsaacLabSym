@@ -17,10 +17,10 @@ from .RockerBot import ROCKERBOT_CFG, wheelsJoints, steeringJoints
 class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     # env
     decimation = 2
-    episode_length_s = 30.0
+    episode_length_s = 20.0
     # - spaces definition
-    action_space = (2, {2})
-    observation_space = 27  # 4 steering joints + 20 lidar + 3 command buffer (maxRows=2 + 1)
+    action_space = 3  # (2, {2})
+    observation_space = 47  # 4 steering joints + 20 lidar * 2 + 3 command buffer (maxRows=2 + 1)
     state_space = 0
 
     # simulation
@@ -39,10 +39,10 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     wheels_dofs_names = wheelsJoints
     steering_dofs_names = steeringJoints
     # - action scale
-    action_scale = 100000.0  # [N]
+    action_scale = 50000.0  # [N]
     wheels_effort_scale = 20
     # The range of the steering action is [-1, 1], which corresponds to a steering angle of [-steering_scale, steering_scale] degrees
-    steering_scale = 60  # degs
+    steering_scale = 1.2  # degs/step
     # - reward scales
     rew_scale_alive = 1.0
     rew_scale_terminated = -2.0

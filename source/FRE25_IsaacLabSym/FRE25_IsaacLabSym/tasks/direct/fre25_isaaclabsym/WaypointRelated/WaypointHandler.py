@@ -94,6 +94,11 @@ class WaypointHandler:
             (nEnvs), dtype=torch.bool, device=envsOrigins.device
         )
 
+        # Buffer to know if an agent has reached a waypoint at the current step
+        self.waypointReachedBuffer = torch.zeros(
+            (nEnvs), dtype=torch.bool, device=envsOrigins.device
+        )
+
     def initializeWaypoints(self):
         # Initialize waypoints in a straight line
         waypointsX = torch.zeros((self.nEnvs, self.nWaypoints), device=self.waypointsPositions.device)
@@ -199,6 +204,9 @@ class WaypointHandler:
         # reset the task completed status for the given environment ids
         self.taskCompleted[env_ids] = False
 
+        # reset the waypoint reached status for the given environment ids
+        self.waypointReachedBuffer[env_ids] = False
+
     def updateCurrentMarker(self):
         indexes = torch.zeros(
             (self.nEnvs, self.nWaypoints),
@@ -240,6 +248,9 @@ class WaypointHandler:
 
         self.taskCompleted = waypointReached & (~notAtLastWaypoint)
 
+        # Update the waypoint reached buffer
+        self.waypointReachedBuffer = waypointReached
+
     def updateTooFarFromWaypoint(self):
         # Check if the robot is too far from the current waypoint
         self.robotTooFarFromWaypoint = (
@@ -262,3 +273,8 @@ class WaypointHandler:
         self.updateTooFarFromWaypoint()
 
         return close_to_waypoint
+
+    def getReward(self) -> torch.Tensor:
+        tmp = self.waypointReachedBuffer
+        self.waypointReachedBuffer = torch.zeros_like(self.waypointReachedBuffer)
+        return tmp

@@ -55,6 +55,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             (self.num_envs, len(self.steering_dof_idx)), device=self.device
         )
 
+        # buffer for past lidar readings
+        self.pastLidar = None
+
     def _setup_scene(self):
         self.robots: Articulation = Articulation(self.cfg.robot_cfg)
 
@@ -90,7 +93,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             nPaths=6,
             pathsSpacing=2.0,
             nControlPoints=10,
-            pathLength=2.5,
+            pathLength=1.5,
             pathWidth=.5,
             pointNoiseStd=0.2,
         )
@@ -103,7 +106,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             envsOrigins=self.scene.env_origins,
             commandBuffer=self.commandBuffer,
             pathHandler=self.paths,
-            maxDistanceToWaypoint=self.paths.pathLength * 1.5,
+            maxDistanceToWaypoint=max(self.paths.pathLength * 1.5, 1.5 * self.paths.pathsSpacing * (self.commandBuffer.commandsLength + 1)),
         )
         self.waypoints.initializeWaypoints()
 
@@ -111,7 +114,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.plants = PlantHandler(
             nPlants=100,
             envsOrigins=self.scene.env_origins,
-            plantRadius=0.3,
+            plantRadius=0.2,
         )
 
         self.plants.spawnPlants()
@@ -124,6 +127,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
     def _apply_action(self) -> None:
         # Use the first half of the dofs for the wheels and the second half for the steering
         steering_actions = self.actions[:, [0]]
+        steering_actions = torch.clamp(steering_actions, -1, 1)
         steering_actions = (
             steering_actions.repeat(1, len(self.steering_dof_idx))
             * self.cfg.steering_scale
@@ -133,8 +137,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.steering_buffer += steering_actions
         self.steering_buffer = torch.clamp(
             self.steering_buffer,
-            -self.cfg.steering_scale * 3.14 / 180,
-            self.cfg.steering_scale * 3.14 / 180,
+            -3.14 / 2,
+            3.14 / 2,
         )
         # steering_actions = self.actions[:, len(self.wheels_dof_idx) :]
         # steering_actions = torch.zeros_like(steering_actions)
@@ -143,7 +147,10 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         )
 
         # Normalize wheel actions to be 1
-        wheel_actions = self.actions[:, [1]] * self.cfg.wheels_effort_scale
+        wheel_actions = self.actions[:, [1]]
+        wheel_actions = torch.clamp(wheel_actions, -1, 1)
+        wheel_actions *= self.cfg.wheels_effort_scale
+
         self.robots.set_joint_velocity_target(
             wheel_actions, joint_ids=self.wheels_dof_idx
         )
@@ -169,12 +176,16 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             robotZs,
         )
 
+        if self.pastLidar is None:
+            self.pastLidar = lidar
+
         # get the current commands
         currentCommands = self.commandBuffer.getCurrentCommands()
 
         obs = torch.cat(
             (
                 self.joint_pos[:, self.steering_dof_idx],
+                self.pastLidar,
                 lidar,
                 currentCommands
             ),
@@ -188,16 +199,18 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # print(f"Robot diffs: {torch.norm(self.waypoints.robotsdiffs, dim=1)}")
         # print(f"Robot pose: {robot_pose}")
 
+        self.pastLidar = lidar
+
         return observations
 
     def _get_rewards(self) -> torch.Tensor:
-        stayAliveReward = (1.0 - self.reset_terminated.float())
-        waypointReward = self.waypoints.currentWaypointIndices[:, 1].float()
+        stayAliveReward = (1.0 - self.reset_terminated.float()) / 100000
+        waypointReward = self.waypoints.getReward().float()
         totalReward = stayAliveReward + waypointReward
         return totalReward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
-        DEBUG = False
+        DEBUG = True
         # The episode has reached the maximum length
         time_out = self.episode_length_buf >= self.max_episode_length - 1
         if DEBUG and any(time_out):
