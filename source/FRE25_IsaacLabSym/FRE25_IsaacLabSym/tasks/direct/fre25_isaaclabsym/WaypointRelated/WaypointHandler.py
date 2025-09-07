@@ -221,7 +221,7 @@ class WaypointHandler:
 
     def diffToCurrentWaypoint(self, robot_pos_xy: torch.Tensor) -> torch.Tensor:
         """
-        For each environment, compute the difference between the robot position and the current waypoint position.
+        For each environment, compute the difference between the current waypoint position and the robot position.
 
         Args:
             robot_pos_xy (torch.Tensor): The robot position in the xy plane. Shape: (nEnvs, 2)
@@ -230,7 +230,7 @@ class WaypointHandler:
         """
         # assert robot_pos_xy.shape == (self.nEnvs, 2), "robot_pos_xy must be of shape (nEnvs, 2), but got {}".format(robot_pos_xy.shape)
         # assert currentWaypointsPositions.shape == (self.nEnvs, 2), "currentWaypointsPositions must be of shape (nEnvs, 2) but got {}".format(currentWaypointsPositions.shape)
-        diff = robot_pos_xy - self.currentWaypointPositions[:, :2]
+        diff = self.currentWaypointPositions[:, :2] - robot_pos_xy
         # assert diff.shape == (self.nEnvs, 2), "diff must be of shape (nEnvs, 2)"
         return diff
 

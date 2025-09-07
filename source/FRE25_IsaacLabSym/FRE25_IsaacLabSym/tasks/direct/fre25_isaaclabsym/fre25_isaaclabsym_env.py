@@ -58,6 +58,10 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # buffer for past lidar readings
         self.pastLidar = None
 
+        # Initialize the robot pose  
+        self.robot_pose = None
+        self.past_robot_pose = None
+
     def _setup_scene(self):
         self.robots: Articulation = Articulation(self.cfg.robot_cfg)
 
@@ -166,13 +170,15 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         pass
 
     def _get_observations(self) -> dict:
-        robot_pose = self.robots.data.root_state_w[:, :2]
+        self.past_robot_pose = self.robot_pose
+        self.robot_pose = self.robots.data.root_state_w[:, :2]
+
         robot_quat = self.robots.data.root_state_w[:, 3:7]
         robotEuler = quat2axis(robot_quat)
         robotZs = robotEuler[:, [2]]  # Extract the Z component of the Euler angles
-        self.waypoints.updateCurrentDiffs(robot_pose)
+        self.waypoints.updateCurrentDiffs(self.robot_pose)
         lidar = self.plants.computeDistancesToPlants(
-            robot_pose,
+            self.robot_pose,
             robotZs,
         )
 
@@ -204,9 +210,28 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         return observations
 
     def _get_rewards(self) -> torch.Tensor:
-        stayAliveReward = (1.0 - self.reset_terminated.float()) / 100000
-        waypointReward = self.waypoints.getReward().float()
-        totalReward = stayAliveReward + waypointReward
+        # Reward for staying alive
+        stayAliveReward = (1.0 - self.reset_terminated.float()) / 100000 #(n_envs, 1)
+
+        # Reward for reaching waypoints
+        waypointReward = self.waypoints.getReward().float() #(n_envs, 1)
+
+        # Reward for moving towards the waypoint computed as the dot product between the robot velocity and the normalized vector from the robot to the waypoint
+        toWaypoint = self.waypoints.robotsdiffs
+        toWaypointNorm = torch.norm(toWaypoint, dim=1, keepdim=True) + 1e-6
+        toWaypointDir = toWaypoint / toWaypointNorm
+
+        # Scalar projection of the robot velocity onto the toWaypointDir
+        if self.robot_pose is None:
+            self.robot_pose = self.robots.data.root_state_w[:, :2]
+
+        if self.past_robot_pose is None:
+            self.past_robot_pose = self.robot_pose
+
+        velocityTowardsWaypoint = (self.robot_pose - self.past_robot_pose) * toWaypointDir
+        velocityTowardsWaypoint = torch.sum(velocityTowardsWaypoint, dim=1, keepdim=True)
+
+        totalReward = stayAliveReward + waypointReward + velocityTowardsWaypoint
         return totalReward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
