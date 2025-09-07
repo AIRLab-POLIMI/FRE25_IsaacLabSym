@@ -45,7 +45,7 @@ class KeyboardManager(DeviceBase):
 
     """
 
-    def __init__(self, steeringSensitivity: float = 0.02, throttleSensitivity: float = 0.8):
+    def __init__(self, steeringSensitivity: float = 1, throttleSensitivity: float = 1):
         """Initialize the keyboard layer.
 
         Args:
