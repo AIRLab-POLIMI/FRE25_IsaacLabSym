@@ -85,7 +85,7 @@ class PlantHandler:
             plantRadius=self.plantRadius
         )
         self.distances = distances
-        return distances
+        return distances / self.raymarcher.maxDistance  # Normalize distances to [0, 1]
 
     def detectPlantCollision(self) -> torch.Tensor:
         """
