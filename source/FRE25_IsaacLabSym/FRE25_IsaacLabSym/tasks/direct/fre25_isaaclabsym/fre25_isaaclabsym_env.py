@@ -31,6 +31,7 @@ from .WaypointRelated.WaypointHandler import WaypointHandler
 from .PlantRelated.PlantHandler import PlantHandler
 from .PathHandler import PathHandler
 from .CommandBuffer import CommandBuffer
+
 # import torch.autograd.profiler as profiler
 import isaaclab.sim.schemas as schemas
 from isaaclab.utils.math import axis_angle_from_quat as quat2axis
@@ -58,9 +59,12 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # buffer for past lidar readings
         self.pastLidar = None
 
-        # Initialize the robot pose  
+        # Initialize the robot pose
         self.robot_pose = None
         self.past_robot_pose = None
+
+        # Initialize past command actions
+        self.past_command_actions = None
 
     def _setup_scene(self):
         self.robots: Articulation = Articulation(self.cfg.robot_cfg)
@@ -85,7 +89,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.commandBuffer = CommandBuffer(
             nEnvs=self.scene.num_envs,
             commandsLength=3,
-            maxRows=2,
+            maxRows=1,
             device=self.device,
         )
         self.commandBuffer.randomizeCommands()
@@ -98,7 +102,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             pathsSpacing=2.0,
             nControlPoints=10,
             pathLength=1.5,
-            pathWidth=.5,
+            pathWidth=0.2,
             pointNoiseStd=0.2,
         )
 
@@ -110,13 +114,17 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             envsOrigins=self.scene.env_origins,
             commandBuffer=self.commandBuffer,
             pathHandler=self.paths,
-            maxDistanceToWaypoint=max(self.paths.pathLength * 1.5, 1.5 * self.paths.pathsSpacing * (self.commandBuffer.commandsLength + 1)),
+            waipointReachedEpsilon=0.5,
+            maxDistanceToWaypoint=max(
+                self.paths.pathLength * 1.5,
+                1.5 * self.paths.pathsSpacing * (self.commandBuffer.commandsLength + 1),
+            ),
         )
         self.waypoints.initializeWaypoints()
 
         # Add Plants to the scene
         self.plants = PlantHandler(
-            nPlants=100,
+            nPlants=50,
             envsOrigins=self.scene.env_origins,
             plantRadius=0.2,
         )
@@ -165,7 +173,13 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # If the action is > 0.5, advance the command buffer by one step
         advance_command = command_step_actions > 0.5
-        self.commandBuffer.stepCommands(advance_command)
+        if self.past_command_actions is None:
+            self.past_command_actions = advance_command
+
+        step = advance_command & (~self.past_command_actions)
+
+        self.commandBuffer.stepCommands(step)
+        self.past_command_actions = advance_command
 
         pass
 
@@ -193,7 +207,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
                 self.joint_pos[:, self.steering_dof_idx],
                 self.pastLidar,
                 lidar,
-                currentCommands
+                currentCommands,
             ),
             dim=-1,
         )
@@ -211,10 +225,10 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
     def _get_rewards(self) -> torch.Tensor:
         # Reward for staying alive
-        stayAliveReward = (1.0 - self.reset_terminated.float()) / 100000 #(n_envs, 1)
+        stayAliveReward = (1.0 - self.reset_terminated.float()) / 100000  # (n_envs)
 
         # Reward for reaching waypoints
-        waypointReward = self.waypoints.getReward().float() #(n_envs, 1)
+        waypointReward = self.waypoints.getReward().float()  # (n_envs,)
 
         # Reward for moving towards the waypoint computed as the dot product between the robot velocity and the normalized vector from the robot to the waypoint
         toWaypoint = self.waypoints.robotsdiffs
@@ -228,10 +242,19 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         if self.past_robot_pose is None:
             self.past_robot_pose = self.robot_pose
 
-        velocityTowardsWaypoint = (self.robot_pose - self.past_robot_pose) * toWaypointDir
-        velocityTowardsWaypoint = torch.sum(velocityTowardsWaypoint, dim=1, keepdim=True)
+        velocityTowardsWaypoint = (
+            self.robot_pose - self.past_robot_pose
+        ) * toWaypointDir
+        velocityTowardsWaypoint = torch.sum(velocityTowardsWaypoint, dim=1)
 
-        totalReward = stayAliveReward + waypointReward + velocityTowardsWaypoint
+        # Time out penalty
+        time_out = self.episode_length_buf >= self.max_episode_length - 1
+        timeOutPenalty = time_out.float() * -1000
+
+        totalReward = (
+            stayAliveReward + waypointReward + velocityTowardsWaypoint + timeOutPenalty
+        )
+        # print(f"totalReward: {totalReward}")
         return totalReward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
@@ -252,7 +275,6 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             print(f"Episode terminated: robot out of bounds")
 
         # Check for plant collisions
-        robot_pose = self.robots.data.root_state_w[:, :2]
         plant_collisions = self.plants.detectPlantCollision()
         if DEBUG and any(plant_collisions):
             print(f"Episode terminated: robot collided with a plant")
@@ -295,8 +317,6 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.robots.write_root_velocity_to_sim(default_root_state[:, 7:], env_ids)
         self.robots.write_joint_state_to_sim(joint_pos, joint_vel, None, env_ids)
 
-        self.waypoints.resetWaypoints(env_ids)
-
         # Generate new path for the environment
         self.paths.generatePath()
 
@@ -305,6 +325,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Reset command buffer
         self.commandBuffer.randomizeCommands(env_ids)
+
+        # Reset waypoints
+        self.waypoints.resetWaypoints(env_ids)
 
         # Reset steering buffer
         self.steering_buffer[env_ids] = 0.0

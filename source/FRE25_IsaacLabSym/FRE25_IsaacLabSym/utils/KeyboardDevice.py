@@ -63,7 +63,9 @@ class KeyboardManager(DeviceBase):
         # note: Use weakref on callbacks to ensure that this object can be deleted when its destructor is called.
         self._keyboard_sub = self._input.subscribe_to_keyboard_events(
             self._keyboard,
-            lambda event, *args, obj=weakref.proxy(self): obj._on_keyboard_event(event, *args),
+            lambda event, *args, obj=weakref.proxy(self): obj._on_keyboard_event(
+                event, *args
+            ),
         )
 
         # bindings for keyboard to command
@@ -72,7 +74,6 @@ class KeyboardManager(DeviceBase):
         # internal state
         self._kinematic_command_buffer: np.ndarray = np.zeros(2, dtype=np.float32)
         self._step_command_buffer: bool = False
-        self._step_command_buffer_last: bool = False
 
         # dictionary for additional callbacks
         self._additional_callbacks = dict()
@@ -103,7 +104,6 @@ class KeyboardManager(DeviceBase):
         """Reset the internal state of the keyboard controller."""
         self._kinematic_command_buffer = np.zeros(2, dtype=np.float32)
         self._step_command_buffer = False
-        self._step_command_buffer_last = False
 
     def add_callback(self, key: str, func: Callable):
         """Add additional functions to bind keyboard.
@@ -126,9 +126,9 @@ class KeyboardManager(DeviceBase):
             A tuple containing the steering, throttle and gripper state.
         """
         # return the command and gripper state
-        stepCommand = self._step_command_buffer and (not self._step_command_buffer_last)
-        self._step_command_buffer_last = self._step_command_buffer
+        stepCommand = self._step_command_buffer
         return self._kinematic_command_buffer, stepCommand
+
     """
     Internal helpers.
     """
@@ -146,14 +146,18 @@ class KeyboardManager(DeviceBase):
             if event.input.name == "Q":
                 self._step_command_buffer = True
             elif event.input.name in ["W", "S", "A", "D"]:
-                self._kinematic_command_buffer += self._INPUT_KEY_MAPPING[event.input.name]
+                self._kinematic_command_buffer += self._INPUT_KEY_MAPPING[
+                    event.input.name
+                ]
 
         # remove the command when un-pressed
         if event.type == carb.input.KeyboardEventType.KEY_RELEASE:
             if event.input.name == "Q":
                 self._step_command_buffer = False
             if event.input.name in ["W", "S", "A", "D"]:
-                self._kinematic_command_buffer -= self._INPUT_KEY_MAPPING[event.input.name]
+                self._kinematic_command_buffer -= self._INPUT_KEY_MAPPING[
+                    event.input.name
+                ]
         # additional callbacks
         if event.type == carb.input.KeyboardEventType.KEY_PRESS:
             if event.input.name in self._additional_callbacks:
