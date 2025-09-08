@@ -65,10 +65,12 @@ def main():
         with torch.inference_mode():
             # sample actions from -1 to 1
             actions = env.action_space.sample()
-            continousActions = torch.tensor(actions[0], device=env.unwrapped.device)
-            discreteActions = torch.tensor(actions[1], device=env.unwrapped.device)[:, None]
-            actions = torch.cat([continousActions, discreteActions], dim=1)
+            # print(actions)
+            # continousActions = torch.tensor(actions[:-1], device=env.unwrapped.device)
+            # discreteActions = torch.tensor(actions[-1], device=env.unwrapped.device)[:, None]
+            # actions = torch.cat([continousActions, discreteActions], dim=1)
             # apply actions
+            actions = torch.as_tensor(actions, device=env.unwrapped.device)
             env.step(actions)
 
     # close the simulator
