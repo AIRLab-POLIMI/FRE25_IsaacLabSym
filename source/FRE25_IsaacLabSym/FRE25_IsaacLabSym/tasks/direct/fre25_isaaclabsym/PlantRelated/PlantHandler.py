@@ -16,23 +16,32 @@ import torch
 
 class PlantHandler:
 
-    def __init__(self, nPlants: int = 100, envsOrigins: torch.Tensor = None, plantRadius: float = 1):
-        assert nPlants > 0, "Number of plants must be greater than 0, got {}".format(nPlants)
+    def __init__(
+        self,
+        nPlants: int = 100,
+        envsOrigins: torch.Tensor = None,
+        plantRadius: float = 1,
+    ):
+        assert nPlants > 0, "Number of plants must be greater than 0, got {}".format(
+            nPlants
+        )
         self.nPlants = nPlants
 
         assert envsOrigins is not None, "envsOrigins must be provided"
         self.envsOrigins = envsOrigins
 
-        assert plantRadius > 0, "Plant radius must be greater than 0, got {}".format(plantRadius)
+        assert plantRadius > 0, "Plant radius must be greater than 0, got {}".format(
+            plantRadius
+        )
         self.plantRadius = plantRadius
 
         self.raymarcher = RayMarcher(
             envsOrigins=self.envsOrigins,
             device=self.envsOrigins.device,
-            raysPerRobot=20,  # Number of rays per robot
+            raysPerRobot=40,  # Number of rays per robot
             maxDistance=10.0,  # Maximum distance for raymarching
             tol=0.01,  # Tolerance for raymarching
-            maxSteps=100  # Maximum steps for raymarching
+            maxSteps=100,  # Maximum steps for raymarching
         )
         pass
 
@@ -49,9 +58,9 @@ class PlantHandler:
                     init_state=RigidObjectCfg.InitialStateCfg(
                         pos=(0, 0, 0),
                         rot=(0.70711, 0.70711, 0, 0),
-
                     ),
-                ) for i in range(self.nPlants)
+                )
+                for i in range(self.nPlants)
             }
         )
         self.plants: RigidObjectCollection = RigidObjectCollection(plantsCFG)
@@ -59,9 +68,7 @@ class PlantHandler:
     def randomizePlantsPositions(self, env_ids: torch.Tensor, pathHandler: PathHandler):
         # Randomize plant positions
         envOrigins: torch.Tensor = self.envsOrigins[env_ids]
-        envOrigins = envOrigins.unsqueeze(1).repeat(
-            1, self.nPlants, 1
-        )
+        envOrigins = envOrigins.unsqueeze(1).repeat(1, self.nPlants, 1)
 
         objStates = self.plants.data.object_state_w[env_ids]
 
@@ -70,19 +77,23 @@ class PlantHandler:
 
         self.plants.write_object_state_to_sim(objStates, env_ids)
 
-    def computeDistancesToPlants(self, robot_pos_xy: torch.Tensor, robotAngles: torch.Tensor) -> torch.Tensor:
+    def computeDistancesToPlants(
+        self, robot_pos_xy: torch.Tensor, robotAngles: torch.Tensor
+    ) -> torch.Tensor:
         """
         Compute distances from the robot to all plants.
         :param robot_pos_xy: Robot position in world coordinates (nEnvs, 2)
         :param robotAngles: Robot orientation angles (nEnvs, raysPerRobot)
         :return: A tensor of distances from the robot to each plant in each environment (nEnvs, nPlants)
         """
-        assert robot_pos_xy.dim() == 2, "robot_pos_xy must be a 2D tensor, got {}D".format(robot_pos_xy.dim())
+        assert (
+            robot_pos_xy.dim() == 2
+        ), "robot_pos_xy must be a 2D tensor, got {}D".format(robot_pos_xy.dim())
         _, distances, _ = self.raymarcher.sense(
             robot_pos_xy=robot_pos_xy,
             angles=robotAngles,
             plantsPositions=self.plants.data.object_state_w[:, :, :2],
-            plantRadius=self.plantRadius
+            plantRadius=self.plantRadius,
         )
         self.distances = distances
         return distances / self.raymarcher.maxDistance  # Normalize distances to [0, 1]

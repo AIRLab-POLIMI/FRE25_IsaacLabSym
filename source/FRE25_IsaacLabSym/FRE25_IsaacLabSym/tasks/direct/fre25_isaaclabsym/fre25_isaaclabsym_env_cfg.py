@@ -20,17 +20,24 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     episode_length_s = 20.0
     # - spaces definition
     action_space = 3  # (2, {2})
-    observation_space = 46  # 4 steering joints + 20 lidar * 2 + 2 command buffer (maxRows=1 + 1)
+
+    # 4 current steering + 3 past actions + 40 lidar  + 2 command buffer (maxRows=1 + 1)
+    observation_space = 4 + 3 + 40 * 1 + 2
+
     state_space = 0
 
     # simulation
     sim: SimulationCfg = SimulationCfg(dt=1 / 120, render_interval=decimation)
 
     # robot(s)
-    robot_cfg: ArticulationCfg = ROCKERBOT_CFG.replace(prim_path="/World/envs/env_.*/Robot")
+    robot_cfg: ArticulationCfg = ROCKERBOT_CFG.replace(
+        prim_path="/World/envs/env_.*/Robot"
+    )
 
     # scene
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1, env_spacing=20.0, replicate_physics=True)
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(
+        num_envs=1, env_spacing=20.0, replicate_physics=True
+    )
 
     # custom parameters/scales
     # - controllable joint

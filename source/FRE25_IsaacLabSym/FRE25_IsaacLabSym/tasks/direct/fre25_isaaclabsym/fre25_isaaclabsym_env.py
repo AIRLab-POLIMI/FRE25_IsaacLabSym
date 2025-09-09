@@ -36,6 +36,8 @@ from .CommandBuffer import CommandBuffer
 import isaaclab.sim.schemas as schemas
 from isaaclab.utils.math import axis_angle_from_quat as quat2axis
 
+import matplotlib.pyplot as plt
+
 
 class Fre25IsaaclabsymEnv(DirectRLEnv):
     cfg: Fre25IsaaclabsymEnvCfg
@@ -65,6 +67,19 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Initialize past command actions
         self.past_command_actions = None
+
+        # Initialize plant collision buffer
+        self.plant_collision_buffer = torch.zeros(self.num_envs, device=self.device)
+
+        # Initialize past actions
+        self.pastActions = None
+
+        # Initialize out of bound buffer
+        self.out_of_bound_buffer = torch.zeros(self.num_envs, device=self.device)
+
+        # # Initialize plots
+        # plt.ion()
+        # self.fig, self.ax = plt.subplots()
 
     def _setup_scene(self):
         self.robots: Articulation = Articulation(self.cfg.robot_cfg)
@@ -132,6 +147,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.plants.spawnPlants()
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
+        if self.actions is None:
+            self.actions = torch.zeros_like(actions)
+        self.pastActions = self.actions.clone()
         self.actions = actions.clone()
         self.waypoints.visualizeWaypoints()
         self.waypoints.updateCurrentMarker()
@@ -171,8 +189,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         command_step_actions = self.actions[:, -1]
         command_step_actions = torch.clamp(command_step_actions, 0, 1)
 
-        # If the action is > 0.5, advance the command buffer by one step
-        advance_command = command_step_actions > 0.5
+        # Draw a random number and compare to the action to decide whether to step the command buffer
+        randomNumber = torch.rand_like(command_step_actions)
+        advance_command = randomNumber < command_step_actions
         if self.past_command_actions is None:
             self.past_command_actions = advance_command
 
@@ -196,28 +215,39 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             robotZs,
         )
 
+        # # plot lidar
+        # self.ax.clear()
+        # angles = torch.linspace(0, 360, steps=lidar.shape[1], device=self.device)
+        # distances = lidar[0] * self.plants.raymarcher.maxDistance
+        # points_x = distances * torch.cos(angles * math.pi / 180)
+        # points_y = distances * torch.sin(angles * math.pi / 180)
+        # self.ax.scatter(points_x.cpu().numpy(), points_y.cpu().numpy())
+        # self.ax.plot(points_x.cpu().numpy(), points_y.cpu().numpy(), alpha=0.5)
+        # self.ax.set_title("Lidar Readings")
+        # self.ax.set_xlabel("X")
+        # self.ax.set_ylabel("Y")
+        # plt.draw()
+        # plt.pause(0.001)
+
         if self.pastLidar is None:
             self.pastLidar = lidar
 
         # get the current commands
         currentCommands = self.commandBuffer.getCurrentCommands()
 
+        if self.pastActions is None:
+            self.pastActions = torch.zeros((self.num_envs, 3), device=self.device)
+
         obs = torch.cat(
             (
-                self.joint_pos[:, self.steering_dof_idx],
-                self.pastLidar,
+                self.steering_buffer % (2 * math.pi),
+                self.pastActions,
                 lidar,
                 currentCommands,
             ),
             dim=-1,
         )
         observations = {"policy": obs}
-        # print(f"Robot pose: {robot_pose}")
-        # print(f"waypoint: {self.waypoints.currentWaypointPositions}")
-        # with profiler.profile(record_shapes=True) as prof:
-        # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
-        # print(f"Robot diffs: {torch.norm(self.waypoints.robotsdiffs, dim=1)}")
-        # print(f"Robot pose: {robot_pose}")
 
         self.pastLidar = lidar
 
@@ -228,7 +258,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         stayAliveReward = (1.0 - self.reset_terminated.float()) / 100000  # (n_envs)
 
         # Reward for reaching waypoints
-        waypointReward = self.waypoints.getReward().float()  # (n_envs,)
+        waypointReward = self.waypoints.getReward().float() * 100  # (n_envs,)
 
         # Reward for moving towards the waypoint computed as the dot product between the robot velocity and the normalized vector from the robot to the waypoint
         toWaypoint = self.waypoints.robotsdiffs
@@ -246,13 +276,27 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             self.robot_pose - self.past_robot_pose
         ) * toWaypointDir
         velocityTowardsWaypoint = torch.sum(velocityTowardsWaypoint, dim=1)
+        velocityTowardsWaypoint *= 10
 
         # Time out penalty
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        timeOutPenalty = time_out.float() * -1000
+        timeOutPenalty = time_out.float() * -200
+
+        # Penalty for plant collisions
+        plantCollisionPenalty = self.plant_collision_buffer.float() * -50
+        self.plant_collision_buffer = torch.zeros(self.num_envs, device=self.device)
+
+        # Out of bounds penalty
+        out_of_bounds = self.waypoints.robotTooFarFromWaypoint
+        outOfBoundsPenalty = out_of_bounds.float() * -100
 
         totalReward = (
-            stayAliveReward + waypointReward + velocityTowardsWaypoint + timeOutPenalty
+            stayAliveReward
+            + waypointReward
+            + velocityTowardsWaypoint
+            + timeOutPenalty
+            + plantCollisionPenalty
+            + outOfBoundsPenalty
         )
         # print(f"totalReward: {totalReward}")
         return totalReward
@@ -271,11 +315,13 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # The robot is too far from the current waypoint
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
+        self.out_of_bound_buffer = out_of_bounds
         if DEBUG and any(out_of_bounds):
             print(f"Episode terminated: robot out of bounds")
 
         # Check for plant collisions
         plant_collisions = self.plants.detectPlantCollision()
+        self.plant_collision_buffer = plant_collisions
         if DEBUG and any(plant_collisions):
             print(f"Episode terminated: robot collided with a plant")
 
