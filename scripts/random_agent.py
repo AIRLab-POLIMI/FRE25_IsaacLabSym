@@ -14,9 +14,14 @@ from isaaclab.app import AppLauncher
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Random agent for Isaac Lab environments.")
 parser.add_argument(
-    "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
+    "--disable_fabric",
+    action="store_true",
+    default=False,
+    help="Disable fabric and use USD I/O operations.",
 )
-parser.add_argument("--num_envs", type=int, default=None, help="Number of environments to simulate.")
+parser.add_argument(
+    "--num_envs", type=int, default=None, help="Number of environments to simulate."
+)
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -26,10 +31,7 @@ args_cli = parser.parse_args()
 # args_cli.headless = True  # run in headless mode
 # args_cli.livestream = 1  # livestream to web
 
-args_cli.livestream_config = {
-    "publicEndpointAddress": "131.175.28.195",
-    "port": 49100
-}
+args_cli.livestream_config = {"publicEndpointAddress": "131.175.28.195", "port": 49100}
 # launch omniverse app
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
@@ -49,7 +51,10 @@ def main():
     """Random actions agent with Isaac Lab environment."""
     # create environment configuration
     env_cfg = parse_env_cfg(
-        args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric
+        args_cli.task,
+        device=args_cli.device,
+        num_envs=args_cli.num_envs,
+        use_fabric=not args_cli.disable_fabric,
     )
     # create environment
     env = gym.make(args_cli.task, cfg=env_cfg)
@@ -71,7 +76,7 @@ def main():
             # actions = torch.cat([continousActions, discreteActions], dim=1)
             # apply actions
             actions = torch.as_tensor(actions, device=env.unwrapped.device)
-            env.step(actions)
+            observations, rewards, terminations, truncations, infos = env.step(actions)
 
     # close the simulator
     env.close()
