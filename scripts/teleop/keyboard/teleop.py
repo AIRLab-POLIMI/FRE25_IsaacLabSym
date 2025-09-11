@@ -73,10 +73,10 @@ def main():
     env.reset()
     keyboardManager = KeyboardManager()
     keyboardManager.reset()
+    totalReward = 0.0
     # simulate environment
     while simulation_app.is_running():
         # run everything in inference mode
-        totalReward = 0.0
         with torch.inference_mode():
             kinematicCommands, stepCommand = keyboardManager.advance()
 
@@ -92,7 +92,7 @@ def main():
 
             totalReward += rewards.item()
 
-            # print(f"Total reward: {totalReward}")
+            print(f"Total reward: {totalReward}")
 
             if terminations.any() or truncations.any():
                 print(f"Episode finished with reward {totalReward}")
