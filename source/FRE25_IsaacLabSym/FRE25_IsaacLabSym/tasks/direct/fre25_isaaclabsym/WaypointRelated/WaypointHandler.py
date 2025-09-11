@@ -35,7 +35,7 @@ class WaypointHandler:
         self.nEnvs = nEnvs
 
         # The first row of plants adds 1 waypoints (end), each command adds 2 waypoints (landing row start and end)
-        self.nWaypoints = (self.commandBuffer.commandsLength) * 2 + 1
+        self.nWaypoints = self.commandBuffer.commandsLength * 3 + 2
 
         assert envsOrigins.shape == (
             nEnvs,
@@ -116,19 +116,19 @@ class WaypointHandler:
         )
 
         # Since the robot goes forward, backward, forward, backward... the X positions of the waypoints are always the same
-        # and they alternate between 0 and lineLength as l, l, 0, 0, l, l, 0...
-        waypointsX[:, 0::4] = (
-            self.pathHandler.pathLength + self.endOfRowPadding
-        )  # odd waypoints are the end of each row
-        waypointsX[:, 1::4] = (
-            self.pathHandler.pathLength + self.endOfRowPadding
-        )  # even waypoints are the start of each row
-        waypointsX[:, 2::4] = (
-            -self.endOfRowPadding
-        )  # odd waypoints are the end of each row
-        waypointsX[:, 3::4] = (
-            -self.endOfRowPadding
-        )  # even waypoints are the start of each row
+        # and they alternate between 0 and lineLength as l/2, l, l, l/2, 0, 0, l/2, l, l/2, 0...
+        # with some padding at the end of each row to give the robot space to turn
+        # So the X positions of the waypoints are 6-periodic:
+        start = -self.endOfRowPadding
+        middle = self.pathHandler.pathLength / 2
+        end = self.pathHandler.pathLength + self.endOfRowPadding
+
+        waypointsX[:, 0::6] = middle
+        waypointsX[:, 1::6] = end
+        waypointsX[:, 2::6] = end
+        waypointsX[:, 3::6] = middle
+        waypointsX[:, 4::6] = start
+        waypointsX[:, 5::6] = start
 
         waypointsY = torch.zeros(
             (self.nEnvs, self.nWaypoints), device=self.waypointsPositions.device
@@ -211,8 +211,13 @@ class WaypointHandler:
             (len(env_ids), self.nWaypoints), device=self.waypointsPositions.device
         )
         waypointsY[:, 0] = 0  # first waypoint has Y=0 since the robot starts at (0,0)
-        waypointsY[:, 1::2] = rowsY  # even waypoints are the start of each row
-        waypointsY[:, 2::2] = rowsY  # odd waypoints are the end of each row
+        waypointsY[:, 1] = 0  # second waypoint has Y=0 since the robot starts at (0,0)
+
+        # Except for the first two waypoints, the Y positions of the waypoints are 3-periodic:
+        # with the first of each period being the same as the row Y position, and the
+        waypointsY[:, 2::3] = rowsY
+        waypointsY[:, 3::3] = rowsY
+        waypointsY[:, 4::3] = rowsY
 
         # add the environment origins to the waypoints
         waypointsY += self.envsOrigins[env_ids, :, 1]
