@@ -277,11 +277,18 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         if self.past_robot_pose is None:
             self.past_robot_pose = self.robot_pose
 
-        velocityTowardsWaypoint = (
-            self.robot_pose - self.past_robot_pose
-        ) * toWaypointDir
+        dt = self.cfg.sim.dt
+        if dt <= 0:
+            dt = 1e-6
+
+        velocity = (self.robot_pose - self.past_robot_pose) / dt
+        velocityTowardsWaypoint = velocity * toWaypointDir
         velocityTowardsWaypoint = torch.sum(velocityTowardsWaypoint, dim=1)
-        velocityTowardsWaypoint *= 10
+
+        # print(
+        #     f"toWaypointDir: {toWaypointDir}, velocity:{velocity}, dt: {dt}, velocityTowardsWaypoint: {velocityTowardsWaypoint}"
+        # )
+        velocityTowardsWaypoint /= 10
 
         # Waypoint distance based reward
         # toWaypoint = self.waypoints.robotsdiffs
