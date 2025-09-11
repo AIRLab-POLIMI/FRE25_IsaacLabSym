@@ -322,7 +322,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         outOfBoundsPenalty = out_of_bounds.float() * -50
 
         # Penalty for action bound violations
-        actionBoundViolationPenalty = self.actionsBoundViolations.float() * -100
+        actionBoundViolationPenalty = self.actionsBoundViolations.float() * -10
 
         totalReward = (
             waypointReward
