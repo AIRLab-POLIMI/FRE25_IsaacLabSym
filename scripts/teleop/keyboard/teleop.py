@@ -92,7 +92,7 @@ def main():
 
             totalReward += rewards.item()
 
-            # print(f"Total reward: {totalReward}")
+            print(f"Total reward: {totalReward}")
 
             if terminations.any() or truncations.any():
                 print(f"Episode finished with reward {totalReward}")
