@@ -158,7 +158,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         absoluteActions = torch.abs(actions)
         boundViolations = absoluteActions - 1.0
         boundViolations = torch.clamp(boundViolations, min=0.0)
-        self.actionsBoundViolations = torch.sum(boundViolations)
+        self.actionsBoundViolations = torch.sum(boundViolations, dim=1)
 
         if self.actions is None:
             self.actions = torch.zeros_like(actions)
@@ -298,11 +298,11 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         velocityTowardsWaypoint /= 10
 
         # Comunte velocity orthogonal to the waypoint direction and penalize it
-        velocityOrthogonalToWaypoint = (
-            velocity - velocityTowardsWaypoint[:, None] * toWaypointDir
-        )
-        velocityOrthogonalToWaypoint = torch.norm(velocityOrthogonalToWaypoint, dim=1)
-        velocityOrthogonalToWaypoint = -velocityOrthogonalToWaypoint / 20
+        # velocityOrthogonalToWaypoint = (
+        #     velocity - velocityTowardsWaypoint[:, None] * toWaypointDir
+        # )
+        # velocityOrthogonalToWaypoint = torch.norm(velocityOrthogonalToWaypoint, dim=1)
+        # velocityOrthogonalToWaypoint = -velocityOrthogonalToWaypoint / 20
 
         # Waypoint distance based reward
         # toWaypoint = self.waypoints.robotsdiffs
@@ -327,7 +327,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         totalReward = (
             waypointReward
             + velocityTowardsWaypoint
-            + velocityOrthogonalToWaypoint
+            # + velocityOrthogonalToWaypoint
             + timeOutPenalty
             + plantCollisionPenalty
             + outOfBoundsPenalty
