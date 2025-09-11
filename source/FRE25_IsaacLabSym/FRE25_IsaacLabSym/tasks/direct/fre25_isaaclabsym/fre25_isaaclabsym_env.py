@@ -297,6 +297,13 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # )
         velocityTowardsWaypoint /= 10
 
+        # Comunte velocity orthogonal to the waypoint direction and penalize it
+        velocityOrthogonalToWaypoint = (
+            velocity - velocityTowardsWaypoint[:, None] * toWaypointDir
+        )
+        velocityOrthogonalToWaypoint = torch.norm(velocityOrthogonalToWaypoint, dim=1)
+        velocityOrthogonalToWaypoint = -velocityOrthogonalToWaypoint / 20
+
         # Waypoint distance based reward
         # toWaypoint = self.waypoints.robotsdiffs
         # distance = torch.norm(toWaypoint, dim=1)
@@ -320,6 +327,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         totalReward = (
             waypointReward
             + velocityTowardsWaypoint
+            + velocityOrthogonalToWaypoint
             + timeOutPenalty
             + plantCollisionPenalty
             + outOfBoundsPenalty
