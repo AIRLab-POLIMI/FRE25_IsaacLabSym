@@ -37,7 +37,7 @@ import isaaclab.sim.schemas as schemas
 from isaaclab.utils.math import axis_angle_from_quat as quat2axis
 
 import matplotlib.pyplot as plt
-from gymnasium.spaces import MultiDiscrete
+from gymnasium.spaces import Box
 
 
 class Fre25IsaaclabsymEnv(DirectRLEnv):
@@ -46,7 +46,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
     def __init__(
         self, cfg: Fre25IsaaclabsymEnvCfg, render_mode: str | None = None, **kwargs
     ):
-        # cfg.action_space = MultiDiscrete([3, 3])  # type: ignore
+        cfg.action_space = Box(low=-1, high=1, shape=(cfg.action_space,), dtype=float)  # type: ignore
         self.cfg = cfg
         super().__init__(cfg, render_mode, **kwargs)
 
@@ -153,6 +153,13 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
         actions = torch.clamp(actions, -1, 1)
+
+        # Compute bound violations
+        absoluteActions = torch.abs(actions)
+        boundViolations = absoluteActions - 1.0
+        boundViolations = torch.clamp(boundViolations, min=0.0)
+        self.actionsBoundViolations = torch.sum(boundViolations)
+
         if self.actions is None:
             self.actions = torch.zeros_like(actions)
         self.actions = actions.clone()
@@ -307,12 +314,16 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
         outOfBoundsPenalty = out_of_bounds.float() * -50
 
+        # Penalty for action bound violations
+        actionBoundViolationPenalty = self.actionsBoundViolations.float() * -100
+
         totalReward = (
             waypointReward
             + velocityTowardsWaypoint
             + timeOutPenalty
             + plantCollisionPenalty
             + outOfBoundsPenalty
+            + actionBoundViolationPenalty
         )
         # print(f"totalReward: {totalReward}")
         return totalReward / 10
@@ -327,19 +338,19 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # the robot has reached all the waypoints
         reached_all_waypoints = self.waypoints.taskCompleted
         if DEBUG and any(reached_all_waypoints):
-            print(f"Task completed: reached all waypoints")
+            print("Task completed: reached all waypoints")
 
         # The robot is too far from the current waypoint
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
         self.out_of_bound_buffer = out_of_bounds
         if DEBUG and any(out_of_bounds):
-            print(f"Episode terminated: robot out of bounds")
+            print("Episode terminated: robot out of bounds")
 
         # Check for plant collisions
         plant_collisions = self.plants.detectPlantCollision()
         self.plant_collision_buffer = plant_collisions
         if DEBUG and any(plant_collisions):
-            print(f"Episode terminated: robot collided with a plant")
+            print("Episode terminated: robot collided with a plant")
 
         # Completed command buffer
         completed_command_buffer = self.commandBuffer.dones()
@@ -348,7 +359,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         ########################
         # completed_command_buffer = torch.zeros_like(completed_command_buffer)
         if DEBUG and any(completed_command_buffer):
-            print(f"Task Failed: completed command buffer")
+            print("Task Failed: completed command buffer")
 
         taskCompleted = reached_all_waypoints | time_out
         taskFailed = out_of_bounds | plant_collisions | completed_command_buffer
@@ -410,4 +421,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Reset actions
         self.actions[env_ids] = 0.0
+
+        # Reset action bound violations
+        if hasattr(self, "actionsBoundViolations"):
+            self.actionsBoundViolations[env_ids] = 0.0
         pass
