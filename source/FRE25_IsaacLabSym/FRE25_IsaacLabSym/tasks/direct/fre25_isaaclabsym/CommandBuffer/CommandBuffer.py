@@ -10,7 +10,13 @@ class CommandBuffer:
     to move forward, and each command has an associated turn direction (left/right).
     """
 
-    def __init__(self, nEnvs: int = 10, commandsLength: int = 10, maxRows: int = 3, device: str = 'cuda:0'):
+    def __init__(
+        self,
+        nEnvs: int = 10,
+        commandsLength: int = 10,
+        maxRows: int = 3,
+        device: str = "cuda:0",
+    ):
         """Initialize the CommandBuffer with specified parameters.
 
         Args:
@@ -25,10 +31,14 @@ class CommandBuffer:
         self.device = device
 
         # Initialize the command buffer with 0s
-        self.commandBuffer = torch.zeros((nEnvs, commandsLength), device=device, dtype=torch.int32)
+        self.commandBuffer = torch.zeros(
+            (nEnvs, commandsLength), device=device, dtype=torch.int32
+        )
 
         # Initialize the turn right buffer with False (meaning turn left by default)
-        self.turnRightBuffer = torch.zeros((nEnvs, commandsLength), device=device, dtype=torch.bool)
+        self.turnRightBuffer = torch.zeros(
+            (nEnvs, commandsLength), device=device, dtype=torch.bool
+        )
 
         # Initialize index buffer to keep track of the current command index for each environment
         self.indexBuffer = torch.zeros((nEnvs,), dtype=torch.int32, device=device)
@@ -43,7 +53,7 @@ class CommandBuffer:
         for each command in the sequence. Resets the index and done buffers for the specified environments.
 
         Args:
-            env_ids (Sequence[int] | None, optional): List of environment IDs to randomize. 
+            env_ids (Sequence[int] | None, optional): List of environment IDs to randomize.
                                                     If None, randomizes all environments. Defaults to None.
         """
         if env_ids is None:
@@ -54,19 +64,23 @@ class CommandBuffer:
             high=self.maxRows + 1,
             size=(len(env_ids), self.commandsLength),
             device=self.device,
-            dtype=torch.int32
+            dtype=torch.int32,
         )
         self.turnRightBuffer[env_ids] = torch.randint(
             low=0,
             high=2,
             size=(len(env_ids), self.commandsLength),
             device=self.device,
-            dtype=torch.bool
+            dtype=torch.bool,
         )
 
-        self.indexBuffer[env_ids] = torch.zeros((len(env_ids),), dtype=torch.int32, device=self.device)
+        self.indexBuffer[env_ids] = torch.zeros(
+            (len(env_ids),), dtype=torch.int32, device=self.device
+        )
 
-        self.doneBuffer[env_ids] = torch.zeros((len(env_ids),), dtype=torch.bool, device=self.device)
+        self.doneBuffer[env_ids] = torch.zeros(
+            (len(env_ids),), dtype=torch.bool, device=self.device
+        )
 
     def getCurrentCommands(self) -> torch.Tensor:
         """Get the current commands for all environments in one-hot encoded format.
@@ -79,14 +93,27 @@ class CommandBuffer:
             torch.Tensor: Tensor of shape (nEnvs, maxRows + 1) containing one-hot encoded
                          current commands with turn direction as the last column.
         """
-        commands = self.commandBuffer[torch.arange(self.nEnvs, device=self.device), self.indexBuffer]
-        turnRight = self.turnRightBuffer[torch.arange(self.nEnvs, device=self.device), self.indexBuffer]
+        commands = self.commandBuffer[
+            torch.arange(self.nEnvs, device=self.device), self.indexBuffer
+        ]
+        turnRight = self.turnRightBuffer[
+            torch.arange(self.nEnvs, device=self.device), self.indexBuffer
+        ]
 
         # One hot encoding for commands
-        oneHotCommands = torch.zeros((self.nEnvs, self.maxRows), device=self.device, dtype=torch.int32)
+        oneHotCommands = torch.zeros(
+            (self.nEnvs, self.maxRows), device=self.device, dtype=torch.int32
+        )
         oneHotCommands[torch.arange(self.nEnvs, device=self.device), commands - 1] = 1
 
-        currentCommands = torch.cat((oneHotCommands, turnRight.unsqueeze(1).int()), dim=1)
+        currentCommands = torch.cat(
+            (
+                oneHotCommands,
+                turnRight.unsqueeze(1).int(),
+                (self.indexBuffer % 2).unsqueeze(1).int(),
+            ),
+            dim=1,
+        )
 
         return currentCommands
 
@@ -128,7 +155,7 @@ class CommandBuffer:
 
 
 if __name__ == "__main__":
-    commandBuffer = CommandBuffer(nEnvs=5, commandsLength=2, maxRows=3, device='cuda:0')
+    commandBuffer = CommandBuffer(nEnvs=5, commandsLength=2, maxRows=3, device="cuda:0")
     commandBuffer.randomizeCommands()
     print("Command Buffer:")
     print(commandBuffer.commandBuffer)

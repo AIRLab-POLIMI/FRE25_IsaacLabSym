@@ -17,7 +17,8 @@ class WaypointHandler:
         waipointReachedEpsilon: float = 0.5,
         maxDistanceToWaypoint: float = 1.5,
         commandBuffer: CommandBuffer = None,
-        pathHandler: PathHandler = None
+        pathHandler: PathHandler = None,
+        endOfRowPadding: float = 1.0,
     ):
         assert commandBuffer is not None, "commandBuffer must be provided"
         self.commandBuffer = commandBuffer
@@ -25,11 +26,16 @@ class WaypointHandler:
         assert pathHandler is not None, "pathHandler must be provided"
         self.pathHandler = pathHandler
 
-        assert nEnvs > 0, "Number of environments must be greater than 0, got {}".format(nEnvs)
+        assert endOfRowPadding >= 0, "endOfRowPadding must be greater than 0"
+        self.endOfRowPadding = endOfRowPadding
+
+        assert (
+            nEnvs > 0
+        ), "Number of environments must be greater than 0, got {}".format(nEnvs)
         self.nEnvs = nEnvs
 
-        # The first row of plants adds 2 waypoints (start and end), each command adds 2 waypoints (landing row start and end)
-        self.nWaypoints = (self.commandBuffer.commandsLength + 1) * 2
+        # The first row of plants adds 1 waypoints (end), each command adds 2 waypoints (landing row start and end)
+        self.nWaypoints = (self.commandBuffer.commandsLength) * 2 + 1
 
         assert envsOrigins.shape == (
             nEnvs,
@@ -41,10 +47,14 @@ class WaypointHandler:
             1, self.nWaypoints, 1
         )
 
-        assert lineLength >= 0, "Line length must be greater than 0, got {}".format(lineLength)
+        assert lineLength >= 0, "Line length must be greater than 0, got {}".format(
+            lineLength
+        )
         self.lineLength = lineLength
 
-        assert lineWidth >= 0, "Line width must be greater than 0, got {}".format(lineWidth)
+        assert lineWidth >= 0, "Line width must be greater than 0, got {}".format(
+            lineWidth
+        )
         self.lineWidth = lineWidth
 
         self.lineZ = lineZ
@@ -101,16 +111,28 @@ class WaypointHandler:
 
     def initializeWaypoints(self):
         # Initialize waypoints in a straight line
-        waypointsX = torch.zeros((self.nEnvs, self.nWaypoints), device=self.waypointsPositions.device)
+        waypointsX = torch.zeros(
+            (self.nEnvs, self.nWaypoints), device=self.waypointsPositions.device
+        )
 
         # Since the robot goes forward, backward, forward, backward... the X positions of the waypoints are always the same
-        # and they alternate between 0 and lineLength as 0, l, l, 0, 0, l, l, 0...
-        waypointsX[:, 0::4] = 0  # even waypoints are the start of each row
-        waypointsX[:, 1::4] = self.pathHandler.pathLength  # odd waypoints are the end of each row
-        waypointsX[:, 2::4] = self.pathHandler.pathLength  # even waypoints are the start of each row
-        waypointsX[:, 3::4] = 0  # odd waypoints are the end of each row
+        # and they alternate between 0 and lineLength as l, l, 0, 0, l, l, 0...
+        waypointsX[:, 0::4] = (
+            self.pathHandler.pathLength + self.endOfRowPadding
+        )  # odd waypoints are the end of each row
+        waypointsX[:, 1::4] = (
+            self.pathHandler.pathLength + self.endOfRowPadding
+        )  # even waypoints are the start of each row
+        waypointsX[:, 2::4] = (
+            -self.endOfRowPadding
+        )  # odd waypoints are the end of each row
+        waypointsX[:, 3::4] = (
+            -self.endOfRowPadding
+        )  # even waypoints are the start of each row
 
-        waypointsY = torch.zeros((self.nEnvs, self.nWaypoints), device=self.waypointsPositions.device)
+        waypointsY = torch.zeros(
+            (self.nEnvs, self.nWaypoints), device=self.waypointsPositions.device
+        )
         waypointsZ = torch.full((self.nEnvs, self.nWaypoints), self.lineZ)
 
         self.waypointsPositions[:, :, 0] = waypointsX
@@ -156,8 +178,12 @@ class WaypointHandler:
     def setWaypointsFromPathAndCommands(self, env_ids: Sequence[int]):
         pathWidth = self.pathHandler.pathsSpacing
 
-        turnsMagnitudes = self.commandBuffer.commandBuffer[env_ids]  # (len(env_ids), commandsLength)
-        turnDirections = self.commandBuffer.turnRightBuffer[env_ids]  # (len(env_ids), commandsLength)
+        turnsMagnitudes = self.commandBuffer.commandBuffer[
+            env_ids
+        ]  # (len(env_ids), commandsLength)
+        turnDirections = self.commandBuffer.turnRightBuffer[
+            env_ids
+        ]  # (len(env_ids), commandsLength)
 
         # Regardless of the commands the waypoints X positions are always the same
 
@@ -168,19 +194,25 @@ class WaypointHandler:
         globalTurnDirections[:, 1::2] = ~globalTurnDirections[:, 1::2]
 
         # Now I can convert it the bool (is it -Y?) to a float (-1 or 1)
-        globalTurnDirectionsSign = -(globalTurnDirections.float() * 2 - 1)  # convert to -1 and 1
+        globalTurnDirectionsSign = -(
+            globalTurnDirections.float() * 2 - 1
+        )  # convert to -1 and 1
 
         # Now I can compute the delta Y for each command by multiplying the turnsMagnitudes by the globalTurnDirectionsSign
-        deltaY = turnsMagnitudes * globalTurnDirectionsSign * pathWidth  # (len(env_ids), commandsLength)
+        deltaY = (
+            turnsMagnitudes * globalTurnDirectionsSign * pathWidth
+        )  # (len(env_ids), commandsLength)
 
         # Since the robot starts at (0,0), I can compute the Y positions of the rows by cumulatively summing the deltaY
         rowsY = torch.cumsum(deltaY, dim=1)  # (len(env_ids), commandsLength)
 
         # Now I can compute the waypoints Y positions
-        waypointsY = torch.zeros((len(env_ids), self.nWaypoints), device=self.waypointsPositions.device)
-        waypointsY[:, 0:2] = 0  # first two waypoints have Y=0 since the robot starts at (0,0)
-        waypointsY[:, 2::2] = rowsY  # even waypoints are the start of each row
-        waypointsY[:, 3::2] = rowsY  # odd waypoints are the end of each row
+        waypointsY = torch.zeros(
+            (len(env_ids), self.nWaypoints), device=self.waypointsPositions.device
+        )
+        waypointsY[:, 0] = 0  # first waypoint has Y=0 since the robot starts at (0,0)
+        waypointsY[:, 1::2] = rowsY  # even waypoints are the start of each row
+        waypointsY[:, 2::2] = rowsY  # odd waypoints are the end of each row
 
         # add the environment origins to the waypoints
         waypointsY += self.envsOrigins[env_ids, :, 1]
@@ -241,10 +273,12 @@ class WaypointHandler:
         self.currentWaypointIndices[waypointReachedAndNotAtLast, 1] += 1
 
         # Update the current waypoint position for each environment
-        self.currentWaypointPositions[waypointReachedAndNotAtLast] = self.waypointsPositions[
-            self.currentWaypointIndices[waypointReachedAndNotAtLast, 0],
-            self.currentWaypointIndices[waypointReachedAndNotAtLast, 1],
-        ]
+        self.currentWaypointPositions[waypointReachedAndNotAtLast] = (
+            self.waypointsPositions[
+                self.currentWaypointIndices[waypointReachedAndNotAtLast, 0],
+                self.currentWaypointIndices[waypointReachedAndNotAtLast, 1],
+            ]
+        )
 
         self.taskCompleted = waypointReached & (~notAtLastWaypoint)
 
@@ -276,5 +310,5 @@ class WaypointHandler:
 
     def getReward(self) -> torch.Tensor:
         tmp = self.waypointReachedBuffer
-        self.waypointReachedBuffer = torch.zeros_like(self.waypointReachedBuffer)
+        # self.waypointReachedBuffer = torch.zeros_like(self.waypointReachedBuffer)
         return tmp

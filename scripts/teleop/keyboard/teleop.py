@@ -19,7 +19,10 @@ from isaaclab.app import AppLauncher  # type: ignore
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Random agent for Isaac Lab environments.")
 parser.add_argument(
-    "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
+    "--disable_fabric",
+    action="store_true",
+    default=False,
+    help="Disable fabric and use USD I/O operations.",
 )
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -46,6 +49,7 @@ from isaaclab_tasks.utils import parse_env_cfg  # type: ignore
 from isaaclab.devices.device_base import DeviceBase
 
 import FRE25_IsaacLabSym.tasks  # noqa: F401
+
 # Resolve KeyboardManager import: prefer package-relative import, fallback to absolute import when run as a script
 from FRE25_IsaacLabSym.utils.KeyboardDevice import KeyboardManager
 
@@ -54,7 +58,10 @@ def main():
     """Random actions agent with Isaac Lab environment."""
     # create environment configuration
     env_cfg = parse_env_cfg(
-        args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric
+        args_cli.task,
+        device=args_cli.device,
+        num_envs=args_cli.num_envs,
+        use_fabric=not args_cli.disable_fabric,
     )
     # create environment
     env = gym.make(args_cli.task, cfg=env_cfg)
@@ -69,6 +76,7 @@ def main():
     # simulate environment
     while simulation_app.is_running():
         # run everything in inference mode
+        totalReward = 0.0
         with torch.inference_mode():
             kinematicCommands, stepCommand = keyboardManager.advance()
 
@@ -76,9 +84,19 @@ def main():
             actions = env.action_space.sample()
             continousActions = torch.tensor([kinematicCommands], device=env.unwrapped.device)  # type: ignore
             discreteActions = torch.tensor([stepCommand], device=env.unwrapped.device)[:, None]  # type: ignore
-            actions = torch.cat([continousActions, discreteActions], dim=1)
+            # actions = torch.cat([continousActions, discreteActions], dim=1)
             # apply actions
-            env.step(actions)
+            observations, rewards, terminations, truncations, infos = env.step(
+                continousActions
+            )
+
+            totalReward += rewards.item()
+
+            # print(f"Total reward: {totalReward}")
+
+            if terminations.any() or truncations.any():
+                print(f"Episode finished with reward {totalReward}")
+                totalReward = 0.0
 
     # close the simulator
     env.close()
