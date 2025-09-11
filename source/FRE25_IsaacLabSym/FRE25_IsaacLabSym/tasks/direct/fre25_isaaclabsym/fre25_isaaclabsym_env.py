@@ -193,7 +193,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Update the command buffer when an even numbered waypoint is reached
         command_step_actions = (
             self.waypoints.getReward()
-            * (self.waypoints.currentWaypointIndices[:, 1] % 2 == 0)
+            * (self.waypoints.currentWaypointIndices[:, 1] % 3 == 0)
         ).float()
         command_step_actions = torch.clamp(command_step_actions, 0, 1)
 
