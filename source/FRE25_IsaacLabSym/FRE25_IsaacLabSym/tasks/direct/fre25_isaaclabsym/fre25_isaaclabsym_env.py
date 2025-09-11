@@ -115,7 +115,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             pathHandler=self.paths,
             waipointReachedEpsilon=0.6,
             maxDistanceToWaypoint=max(
-                self.paths.pathLength * 2,
+                self.paths.pathLength,
                 1.5 * self.paths.pathsSpacing * (self.commandBuffer.maxRows),
             ),
             endOfRowPadding=0.5,
