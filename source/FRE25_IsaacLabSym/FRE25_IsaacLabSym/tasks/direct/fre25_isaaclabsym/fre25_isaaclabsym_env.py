@@ -152,13 +152,13 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.out_of_bound_buffer = torch.zeros(self.num_envs, device=self.device)
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
-        actions = torch.clamp(actions, -1, 1)
-
         # Compute bound violations
         absoluteActions = torch.abs(actions)
         boundViolations = absoluteActions - 2
         boundViolations = torch.clamp(boundViolations, min=0.0)
         self.actionsBoundViolations = torch.sum(boundViolations, dim=1)
+
+        actions = torch.clamp(actions, -1, 1)
 
         if self.actions is None:
             self.actions = torch.zeros_like(actions)
