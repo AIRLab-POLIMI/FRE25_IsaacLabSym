@@ -156,7 +156,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Compute bound violations
         absoluteActions = torch.abs(actions)
-        boundViolations = absoluteActions - 1.5
+        boundViolations = absoluteActions - 2
         boundViolations = torch.clamp(boundViolations, min=0.0)
         self.actionsBoundViolations = torch.sum(boundViolations, dim=1)
 
