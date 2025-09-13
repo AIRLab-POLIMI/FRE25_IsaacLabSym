@@ -119,6 +119,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
                 1.5 * self.paths.pathsSpacing * (self.commandBuffer.maxRows),
             ),
             endOfRowPadding=0.7,
+            waypointsPerRow=6,
         )
         self.waypoints.initializeWaypoints()
 

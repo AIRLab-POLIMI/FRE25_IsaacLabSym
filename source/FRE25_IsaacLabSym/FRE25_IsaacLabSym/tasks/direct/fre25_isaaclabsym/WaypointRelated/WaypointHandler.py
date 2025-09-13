@@ -19,6 +19,7 @@ class WaypointHandler:
         commandBuffer: CommandBuffer = None,
         pathHandler: PathHandler = None,
         endOfRowPadding: float = 1.0,
+        waypointsPerRow: int = 8,
     ):
         assert commandBuffer is not None, "commandBuffer must be provided"
         self.commandBuffer = commandBuffer
@@ -34,8 +35,15 @@ class WaypointHandler:
         ), "Number of environments must be greater than 0, got {}".format(nEnvs)
         self.nEnvs = nEnvs
 
+        assert (
+            waypointsPerRow >= 2
+        ), "waypointsPerRow must be greater than 2, got {}".format(waypointsPerRow)
+        self.waypointsPerRow = waypointsPerRow
+
+        self.nRows = self.commandBuffer.commandsLength + 1
+
         # The first row of plants adds 1 waypoints (end), each command adds 2 waypoints (landing row start and end)
-        self.nWaypoints = self.commandBuffer.commandsLength * 3 + 2
+        self.nWaypoints = self.nRows * self.waypointsPerRow - 1
 
         assert envsOrigins.shape == (
             nEnvs,
@@ -110,25 +118,27 @@ class WaypointHandler:
         )
 
     def initializeWaypoints(self):
-        # Initialize waypoints in a straight line
-        waypointsX = torch.zeros(
-            (self.nEnvs, self.nWaypoints), device=self.waypointsPositions.device
-        )
 
         # Since the robot goes forward, backward, forward, backward... the X positions of the waypoints are always the same
         # and they alternate between 0 and lineLength as l/2, l, l, l/2, 0, 0, l/2, l, l/2, 0...
         # with some padding at the end of each row to give the robot space to turn
         # So the X positions of the waypoints are 6-periodic:
         start = -self.endOfRowPadding
-        middle = self.pathHandler.pathLength / 2
         end = self.pathHandler.pathLength + self.endOfRowPadding
 
-        waypointsX[:, 0::6] = middle
-        waypointsX[:, 1::6] = end
-        waypointsX[:, 2::6] = end
-        waypointsX[:, 3::6] = middle
-        waypointsX[:, 4::6] = start
-        waypointsX[:, 5::6] = start
+        rowXs = torch.linspace(
+            start, end, self.waypointsPerRow, device=self.waypointsPositions.device
+        )
+        doubleRowXs = torch.cat((rowXs, torch.flip(rowXs, [0])), dim=0)
+
+        envWaypointsX = torch.tile(doubleRowXs, (self.nRows // 2,))
+        if self.nRows % 2 == 1:
+            envWaypointsX = torch.cat((envWaypointsX, rowXs))
+        envWaypointsX = envWaypointsX[
+            1:
+        ]  # remove the first waypoint (it is at -padding)
+
+        waypointsX = envWaypointsX.unsqueeze(0).repeat(self.nEnvs, 1)
 
         waypointsY = torch.zeros(
             (self.nEnvs, self.nWaypoints), device=self.waypointsPositions.device
@@ -210,14 +220,13 @@ class WaypointHandler:
         waypointsY = torch.zeros(
             (len(env_ids), self.nWaypoints), device=self.waypointsPositions.device
         )
-        waypointsY[:, 0] = 0  # first waypoint has Y=0 since the robot starts at (0,0)
-        waypointsY[:, 1] = 0  # second waypoint has Y=0 since the robot starts at (0,0)
-
-        # Except for the first two waypoints, the Y positions of the waypoints are 3-periodic:
-        # with the first of each period being the same as the row Y position, and the
-        waypointsY[:, 2::3] = rowsY
-        waypointsY[:, 3::3] = rowsY
-        waypointsY[:, 4::3] = rowsY
+        waypointsY[:, : self.waypointsPerRow - 1] = 0  # first row at Y=0
+        for i in range(1, self.nRows):
+            waypointsY[
+                :, i * self.waypointsPerRow - 1 : (i + 1) * self.waypointsPerRow - 1
+            ] = rowsY[:, i - 1].unsqueeze(
+                1
+            )  # set the Y of the row to the corresponding value in rowsY
 
         # add the environment origins to the waypoints
         waypointsY += self.envsOrigins[env_ids, :, 1]
