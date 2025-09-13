@@ -208,6 +208,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             )
         ).float()
         command_step_actions = torch.clamp(command_step_actions, 0, 1)
+
         # Draw a random number and compare to the action to decide whether to step the command buffer
         randomNumber = torch.rand_like(command_step_actions)
         advance_command = randomNumber < command_step_actions
@@ -299,7 +300,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # print(
         #     f"toWaypointDir: {toWaypointDir}, velocity:{velocity}, dt: {dt}, velocityTowardsWaypoint: {velocityTowardsWaypoint}"
         # )
-        velocityTowardsWaypoint /= 10
+        velocityTowardsWaypoint *= 0
 
         # Comunte velocity orthogonal to the waypoint direction and penalize it
         # velocityOrthogonalToWaypoint = (
