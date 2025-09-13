@@ -275,7 +275,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # stayAliveReward = (1.0 - self.reset_terminated.float()) / 100000  # (n_envs)
 
         # Reward for reaching waypoints
-        waypointReward = self.waypoints.getReward().float() * 10  # (n_envs,)
+        waypointReward = (
+            self.waypoints.getReward().float() * 10 / self.waypoints.waypointsPerRow
+        )  # (n_envs,)
 
         # Reward for moving towards the waypoint computed as the dot product between the robot velocity and the normalized vector from the robot to the waypoint
         toWaypoint = self.waypoints.robotsdiffs
