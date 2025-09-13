@@ -360,7 +360,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         return totalReward / 10
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
-        DEBUG = True
+        DEBUG = False
         # The episode has reached the maximum length
         time_out = self.episode_length_buf >= self.max_episode_length - 1
         if DEBUG and any(time_out):
@@ -461,5 +461,5 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.hidden_state_accumulator[env_ids] = 0.0
 
         # Reset the action buffer
-        self.actions = torch.zeros(self.num_envs, self.cfg.nActions, device=self.device)
+        self.actions[env_ids] = torch.zeros(self.cfg.nActions, device=self.device)
         pass
