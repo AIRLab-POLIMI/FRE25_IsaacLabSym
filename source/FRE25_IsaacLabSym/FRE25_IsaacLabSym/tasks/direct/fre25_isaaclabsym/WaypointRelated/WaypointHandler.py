@@ -253,6 +253,9 @@ class WaypointHandler:
         # reset the waypoint reached status for the given environment ids
         self.waypointReachedBuffer[env_ids] = False
 
+        # reset the robot too far from waypoint status for the given environment ids
+        self.robotTooFarFromWaypoint[env_ids] = False
+
     def updateCurrentMarker(self):
         indexes = torch.zeros(
             (self.nEnvs, self.nWaypoints),
