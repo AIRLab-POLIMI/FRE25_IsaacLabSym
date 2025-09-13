@@ -24,6 +24,13 @@ parser.add_argument(
     default=False,
     help="Disable fabric and use USD I/O operations.",
 )
+
+parser.add_argument(
+    "--printRewards",
+    action="store_true",
+    default=False,
+    help="Print rewards during training.",
+)
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
@@ -92,7 +99,8 @@ def main():
 
             totalReward += rewards.item()
 
-            print(f"Total reward: {totalReward}")
+            if args_cli.printRewards:
+                print(f"Total reward: {totalReward}")
 
             if terminations.any() or truncations.any():
                 print(f"Episode finished with reward {totalReward}")
