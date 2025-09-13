@@ -127,7 +127,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.plants = PlantHandler(
             nPlants=80,
             envsOrigins=self.scene.env_origins,
-            plantRadius=0.25,
+            plantRadius=0.22,
         )
 
         self.plants.spawnPlants()
