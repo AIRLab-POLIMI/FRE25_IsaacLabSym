@@ -228,7 +228,6 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Update hidden state accumulator
         hiddenStateActions = self.actions[:, 2:]
-        print(f"Hidden state actions: {hiddenStateActions}")
         hiddenStateActions = torch.clamp(hiddenStateActions, -1, 1) / 10
         self.hidden_state_accumulator += hiddenStateActions
         self.hidden_state_accumulator = torch.clamp(
@@ -333,15 +332,15 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Time out penalty
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        timeOutPenalty = time_out.float() * -50
+        timeOutPenalty = time_out.float() * 0  # -50
 
         # Penalty for plant collisions
-        plantCollisionPenalty = self.plant_collision_buffer.float() * -50
+        plantCollisionPenalty = self.plant_collision_buffer.float() * 0  # -50
         self.plant_collision_buffer = torch.zeros(self.num_envs, device=self.device)
 
         # Out of bounds penalty
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
-        outOfBoundsPenalty = out_of_bounds.float() * -50
+        outOfBoundsPenalty = out_of_bounds.float() * 0  # -50
 
         # Penalty for action bound violations
         actionBoundViolationPenalty = (
