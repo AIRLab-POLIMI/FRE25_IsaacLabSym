@@ -161,6 +161,11 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
         # print("PRE PHYSICS STEP")
+        # Update robot position and waypoint detection
+        self.past_robot_pose = self.robot_pose
+        self.robot_pose = self.robots.data.root_state_w[:, :2]
+        self.waypoints.updateCurrentDiffs(self.robot_pose)
+
         # Compute bound violations
         absoluteActions = torch.abs(actions)
         boundViolations = absoluteActions - 2
@@ -279,6 +284,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
     def _get_rewards(self) -> torch.Tensor:
         # print("GET REWARDS")
+        # Robot position and waypoint detection already updated in _pre_physics_step
+
         # Reward for staying alive
         # stayAliveReward = (1.0 - self.reset_terminated.float()) / 100000  # (n_envs)
 
@@ -355,13 +362,11 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
     def _get_observations(self) -> dict:
         # print("GET OBSERVATIONS")
-        self.past_robot_pose = self.robot_pose
-        self.robot_pose = self.robots.data.root_state_w[:, :2]
+        # Robot pose and waypoint updates already done in _pre_physics_step
 
         robot_quat = self.robots.data.root_state_w[:, 3:7]
         robotEuler = quat2axis(robot_quat)
         robotZs = robotEuler[:, [2]]  # Extract the Z component of the Euler angles
-        self.waypoints.updateCurrentDiffs(self.robot_pose)
         lidar = self.plants.computeDistancesToPlants(
             self.robot_pose,
             robotZs,
