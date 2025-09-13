@@ -160,7 +160,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         )
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
-        print("PRE PHYSICS STEP")
+        # print("PRE PHYSICS STEP")
         # Compute bound violations
         absoluteActions = torch.abs(actions)
         boundViolations = absoluteActions - 2
@@ -174,7 +174,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.waypoints.updateCurrentMarker()
 
     def _apply_action(self) -> None:
-        print("APPLY ACTION")
+        # print("APPLY ACTION")
         if not hasattr(self, "actions"):
             return
         # Use the first half of the dofs for the wheels and the second half for the steering
@@ -239,7 +239,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         pass
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
-        print("GET DONES")
+        # print("GET DONES")
         DEBUG = False
         # The episode has reached the maximum length
         time_out = self.episode_length_buf >= self.max_episode_length - 1
@@ -278,7 +278,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         return taskFailed, taskCompleted
 
     def _get_rewards(self) -> torch.Tensor:
-        print("GET REWARDS")
+        # print("GET REWARDS")
         # Reward for staying alive
         # stayAliveReward = (1.0 - self.reset_terminated.float()) / 100000  # (n_envs)
 
@@ -354,7 +354,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         return totalReward / 10
 
     def _get_observations(self) -> dict:
-        print("GET OBSERVATIONS")
+        # print("GET OBSERVATIONS")
         self.past_robot_pose = self.robot_pose
         self.robot_pose = self.robots.data.root_state_w[:, :2]
 
@@ -404,7 +404,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         return observations
 
     def _reset_idx(self, env_ids: Sequence[int] | None):
-        print("RESET IDX")
+        # print("RESET IDX")
         if env_ids is None:
             env_ids = self.robots._ALL_INDICES
         super()._reset_idx(env_ids)
