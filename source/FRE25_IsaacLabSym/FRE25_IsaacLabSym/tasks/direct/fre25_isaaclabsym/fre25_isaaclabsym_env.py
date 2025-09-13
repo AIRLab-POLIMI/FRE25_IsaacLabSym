@@ -167,13 +167,13 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         actions = torch.clamp(actions, -1, 1)
 
-        if self.actions is None:
-            self.actions = torch.zeros_like(actions)
         self.actions = actions.clone()
         self.waypoints.visualizeWaypoints()
         self.waypoints.updateCurrentMarker()
 
     def _apply_action(self) -> None:
+        if not hasattr(self, "actions"):
+            return
         # Use the first half of the dofs for the wheels and the second half for the steering
         steering_actions = self.actions[:, [0]]
         steering_actions = torch.clamp(steering_actions, -1, 1)
@@ -228,6 +228,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Update hidden state accumulator
         hiddenStateActions = self.actions[:, 2:]
+        print(f"Hidden state actions: {hiddenStateActions}")
         hiddenStateActions = torch.clamp(hiddenStateActions, -1, 1) / 10
         self.hidden_state_accumulator += hiddenStateActions
         self.hidden_state_accumulator = torch.clamp(

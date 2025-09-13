@@ -89,13 +89,13 @@ def main():
 
             # sample actions from -1 to 1
             actions = env.action_space.sample()
+            actions = torch.tensor([actions], device=env.unwrapped.device).squeeze(1).float()  # type: ignore
             continousActions = torch.tensor([kinematicCommands], device=env.unwrapped.device)  # type: ignore
             discreteActions = torch.tensor([stepCommand], device=env.unwrapped.device)[:, None]  # type: ignore
             # actions = torch.cat([continousActions, discreteActions], dim=1)
             # apply actions
-            observations, rewards, terminations, truncations, infos = env.step(
-                continousActions
-            )
+            actions[:, :2] = continousActions
+            observations, rewards, terminations, truncations, infos = env.step(actions)
 
             totalReward += rewards.item()
 
