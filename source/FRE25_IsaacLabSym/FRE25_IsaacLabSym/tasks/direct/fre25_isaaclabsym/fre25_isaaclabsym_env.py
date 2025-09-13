@@ -340,7 +340,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         return totalReward / 10
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
-        DEBUG = False
+        DEBUG = True
         # The episode has reached the maximum length
         time_out = self.episode_length_buf >= self.max_episode_length - 1
         if DEBUG and any(time_out):
@@ -370,10 +370,10 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         ########################
         # completed_command_buffer = torch.zeros_like(completed_command_buffer)
         if DEBUG and any(completed_command_buffer):
-            print("Task Failed: completed command buffer")
+            print("Task Completed: completed command buffer")
 
-        taskCompleted = reached_all_waypoints | time_out
-        taskFailed = out_of_bounds | plant_collisions | completed_command_buffer
+        taskCompleted = reached_all_waypoints | time_out | completed_command_buffer
+        taskFailed = out_of_bounds | plant_collisions
 
         return taskFailed, taskCompleted
 
