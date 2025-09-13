@@ -459,4 +459,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Reset hidden state accumulator
         self.hidden_state_accumulator[env_ids] = 0.0
+
+        # Reset the action buffer
+        self.actions = torch.zeros(self.num_envs, self.cfg.nActions, device=self.device)
         pass
