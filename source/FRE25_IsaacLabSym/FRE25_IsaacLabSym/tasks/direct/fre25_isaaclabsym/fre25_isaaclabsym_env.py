@@ -67,6 +67,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # self.fig, self.ax = plt.subplots()
 
     def _setup_scene(self):
+        print("SETUP SCENE")
         self.robots: Articulation = Articulation(self.cfg.robot_cfg)
 
         # add ground plane
@@ -159,6 +160,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         )
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
+        print("PRE PHYSICS STEP")
         # Compute bound violations
         absoluteActions = torch.abs(actions)
         boundViolations = absoluteActions - 2
@@ -172,6 +174,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.waypoints.updateCurrentMarker()
 
     def _apply_action(self) -> None:
+        print("APPLY ACTION")
         if not hasattr(self, "actions"):
             return
         # Use the first half of the dofs for the wheels and the second half for the steering
@@ -235,56 +238,47 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         )
         pass
 
-    def _get_observations(self) -> dict:
-        self.past_robot_pose = self.robot_pose
-        self.robot_pose = self.robots.data.root_state_w[:, :2]
+    def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
+        print("GET DONES")
+        DEBUG = False
+        # The episode has reached the maximum length
+        time_out = self.episode_length_buf >= self.max_episode_length - 1
+        if DEBUG and any(time_out):
+            print(f"Episode length reached: {self.max_episode_length} steps")
 
-        robot_quat = self.robots.data.root_state_w[:, 3:7]
-        robotEuler = quat2axis(robot_quat)
-        robotZs = robotEuler[:, [2]]  # Extract the Z component of the Euler angles
-        self.waypoints.updateCurrentDiffs(self.robot_pose)
-        lidar = self.plants.computeDistancesToPlants(
-            self.robot_pose,
-            robotZs,
-        )
+        # the robot has reached all the waypoints
+        reached_all_waypoints = self.waypoints.taskCompleted
+        if DEBUG and any(reached_all_waypoints):
+            print("Task completed: reached all waypoints")
 
-        # # plot lidar
-        # self.ax.clear()
-        # angles = torch.linspace(0, 360, steps=lidar.shape[1], device=self.device)
-        # distances = lidar[0] * self.plants.raymarcher.maxDistance
-        # points_x = distances * torch.cos(angles * math.pi / 180)
-        # points_y = distances * torch.sin(angles * math.pi / 180)
-        # self.ax.scatter(points_x.cpu().numpy(), points_y.cpu().numpy())
-        # self.ax.plot(points_x.cpu().numpy(), points_y.cpu().numpy(), alpha=0.5)
-        # self.ax.set_title("Lidar Readings")
-        # self.ax.set_xlabel("X")
-        # self.ax.set_ylabel("Y")
-        # plt.draw()
-        # plt.pause(0.001)
+        # The robot is too far from the current waypoint
+        out_of_bounds = self.waypoints.robotTooFarFromWaypoint
+        self.out_of_bound_buffer = out_of_bounds
+        if DEBUG and any(out_of_bounds):
+            print("Episode terminated: robot out of bounds")
 
-        if self.pastLidar is None:
-            self.pastLidar = lidar
+        # Check for plant collisions
+        plant_collisions = self.plants.detectPlantCollision()
+        self.plant_collision_buffer = plant_collisions
+        if DEBUG and any(plant_collisions):
+            print("Episode terminated: robot collided with a plant")
 
-        # get the current commands
-        currentCommands = self.commandBuffer.getCurrentCommands()
+        # Completed command buffer
+        completed_command_buffer = self.commandBuffer.dones()
+        #######################
+        #########################
+        ########################
+        # completed_command_buffer = torch.zeros_like(completed_command_buffer)
+        if DEBUG and any(completed_command_buffer):
+            print("Task Completed: completed command buffer")
 
-        obs = torch.cat(
-            (
-                self.steering_buffer % (2 * math.pi),
-                self.actions,
-                lidar,
-                currentCommands,
-                self.hidden_state_accumulator,
-            ),
-            dim=-1,
-        )
-        observations = {"policy": obs}
+        taskCompleted = reached_all_waypoints | time_out | completed_command_buffer
+        taskFailed = out_of_bounds | plant_collisions
 
-        self.pastLidar = lidar
-
-        return observations
+        return taskFailed, taskCompleted
 
     def _get_rewards(self) -> torch.Tensor:
+        print("GET REWARDS")
         # Reward for staying alive
         # stayAliveReward = (1.0 - self.reset_terminated.float()) / 100000  # (n_envs)
 
@@ -359,45 +353,58 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # print(f"totalReward: {totalReward}")
         return totalReward / 10
 
-    def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
-        DEBUG = False
-        # The episode has reached the maximum length
-        time_out = self.episode_length_buf >= self.max_episode_length - 1
-        if DEBUG and any(time_out):
-            print(f"Episode length reached: {self.max_episode_length} steps")
+    def _get_observations(self) -> dict:
+        print("GET OBSERVATIONS")
+        self.past_robot_pose = self.robot_pose
+        self.robot_pose = self.robots.data.root_state_w[:, :2]
 
-        # the robot has reached all the waypoints
-        reached_all_waypoints = self.waypoints.taskCompleted
-        if DEBUG and any(reached_all_waypoints):
-            print("Task completed: reached all waypoints")
+        robot_quat = self.robots.data.root_state_w[:, 3:7]
+        robotEuler = quat2axis(robot_quat)
+        robotZs = robotEuler[:, [2]]  # Extract the Z component of the Euler angles
+        self.waypoints.updateCurrentDiffs(self.robot_pose)
+        lidar = self.plants.computeDistancesToPlants(
+            self.robot_pose,
+            robotZs,
+        )
 
-        # The robot is too far from the current waypoint
-        out_of_bounds = self.waypoints.robotTooFarFromWaypoint
-        self.out_of_bound_buffer = out_of_bounds
-        if DEBUG and any(out_of_bounds):
-            print("Episode terminated: robot out of bounds")
+        # # plot lidar
+        # self.ax.clear()
+        # angles = torch.linspace(0, 360, steps=lidar.shape[1], device=self.device)
+        # distances = lidar[0] * self.plants.raymarcher.maxDistance
+        # points_x = distances * torch.cos(angles * math.pi / 180)
+        # points_y = distances * torch.sin(angles * math.pi / 180)
+        # self.ax.scatter(points_x.cpu().numpy(), points_y.cpu().numpy())
+        # self.ax.plot(points_x.cpu().numpy(), points_y.cpu().numpy(), alpha=0.5)
+        # self.ax.set_title("Lidar Readings")
+        # self.ax.set_xlabel("X")
+        # self.ax.set_ylabel("Y")
+        # plt.draw()
+        # plt.pause(0.001)
 
-        # Check for plant collisions
-        plant_collisions = self.plants.detectPlantCollision()
-        self.plant_collision_buffer = plant_collisions
-        if DEBUG and any(plant_collisions):
-            print("Episode terminated: robot collided with a plant")
+        if self.pastLidar is None:
+            self.pastLidar = lidar
 
-        # Completed command buffer
-        completed_command_buffer = self.commandBuffer.dones()
-        #######################
-        #########################
-        ########################
-        # completed_command_buffer = torch.zeros_like(completed_command_buffer)
-        if DEBUG and any(completed_command_buffer):
-            print("Task Completed: completed command buffer")
+        # get the current commands
+        currentCommands = self.commandBuffer.getCurrentCommands()
 
-        taskCompleted = reached_all_waypoints | time_out | completed_command_buffer
-        taskFailed = out_of_bounds | plant_collisions
+        obs = torch.cat(
+            (
+                self.steering_buffer % (2 * math.pi),
+                self.actions,
+                lidar,
+                currentCommands,
+                self.hidden_state_accumulator,
+            ),
+            dim=-1,
+        )
+        observations = {"policy": obs}
 
-        return taskFailed, taskCompleted
+        self.pastLidar = lidar
+
+        return observations
 
     def _reset_idx(self, env_ids: Sequence[int] | None):
+        print("RESET IDX")
         if env_ids is None:
             env_ids = self.robots._ALL_INDICES
         super()._reset_idx(env_ids)
