@@ -46,7 +46,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
     def __init__(
         self, cfg: Fre25IsaaclabsymEnvCfg, render_mode: str | None = None, **kwargs
     ):
-        cfg.action_space = Box(low=-1, high=1, shape=(cfg.action_space,), dtype=float)  # type: ignore
+        cfg.nActions = cfg.action_space
+        cfg.action_space = Box(low=-1, high=1, shape=(cfg.nActions,), dtype=float)  # type: ignore
         self.cfg = cfg
         super().__init__(cfg, render_mode, **kwargs)
 
@@ -152,6 +153,11 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Initialize out of bound buffer
         self.out_of_bound_buffer = torch.zeros(self.num_envs, device=self.device)
 
+        # Initialize hidden state accumulator
+        self.hidden_state_accumulator = torch.zeros(
+            self.num_envs, self.cfg.nActions - 2, device=self.device
+        )
+
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
         # Compute bound violations
         absoluteActions = torch.abs(actions)
@@ -220,6 +226,13 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.commandBuffer.stepCommands(step)
         self.past_command_actions = advance_command
 
+        # Update hidden state accumulator
+        hiddenStateActions = self.actions[:, 2:]
+        hiddenStateActions = torch.clamp(hiddenStateActions, -1, 1) / 10
+        self.hidden_state_accumulator += hiddenStateActions
+        self.hidden_state_accumulator = torch.clamp(
+            self.hidden_state_accumulator, -1, 1
+        )
         pass
 
     def _get_observations(self) -> dict:
@@ -261,6 +274,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
                 self.actions,
                 lidar,
                 currentCommands,
+                self.hidden_state_accumulator,
             ),
             dim=-1,
         )
@@ -442,4 +456,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Reset action bound violations
         if hasattr(self, "actionsBoundViolations"):
             self.actionsBoundViolations[env_ids] = 0.0
+
+        # Reset hidden state accumulator
+        self.hidden_state_accumulator[env_ids] = 0.0
         pass
