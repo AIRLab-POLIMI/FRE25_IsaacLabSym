@@ -65,6 +65,8 @@ def main():
     # reset environment
     env.reset()
     total_rewards = torch.zeros((args_cli.num_envs,), device=env.unwrapped.device)
+    total_rewards_mean = 0.0
+    count = 0
     # simulate environment
     while simulation_app.is_running():
         # run everything in inference mode
@@ -81,8 +83,17 @@ def main():
             total_rewards += rewards
 
             if torch.any(terminations):
+                total_rewards_mean *= count
+                total_rewards_mean += torch.sum(total_rewards[terminations]).item()
+                count += torch.sum(terminations).item()
+                total_rewards_mean /= count
+
+                print(
+                    f"Episode finished for {torch.sum(terminations).item()} envs, mean:{total_rewards_mean}, rewards: {total_rewards[terminations]}"
+                )
                 if any(total_rewards[terminations] < 0.1):
                     print(f"ZERO TOTAL REWARD: {total_rewards[terminations]}")
+                    break
                 total_rewards[terminations] = 0.0
 
     # close the simulator
