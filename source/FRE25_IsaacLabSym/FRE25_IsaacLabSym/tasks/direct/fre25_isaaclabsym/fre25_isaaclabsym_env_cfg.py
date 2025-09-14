@@ -21,8 +21,8 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     # - spaces definition
     action_space = 6  # (2, {2})
 
-    # 4 current steering + 6 past actions + 40 lidar  + 3 command buffer (maxRows=1 + isItRight? 1 + 1 * parity) + 4 hidden state
-    observation_space = 4 + 6 + 40 * 1 + 3 + 4
+    # 1 current steering + 6 past actions + 40 lidar  + 3 command buffer (maxRows=1 + isItRight? 1 + 1 * parity) + 4 hidden state
+    observation_space = 1 + 6 + 40 * 1 + 3 + 4
 
     state_space = 0
 

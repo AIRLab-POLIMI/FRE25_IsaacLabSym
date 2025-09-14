@@ -400,7 +400,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         obs = torch.cat(
             (
-                self.steering_buffer % (2 * math.pi),
+                self.steering_buffer[:, [0]] % (2 * math.pi),
                 self.actions,
                 lidar,
                 currentCommands,
