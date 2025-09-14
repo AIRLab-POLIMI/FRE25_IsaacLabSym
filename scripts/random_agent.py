@@ -64,19 +64,26 @@ def main():
     print(f"[INFO]: Gym action space: {env.action_space}")
     # reset environment
     env.reset()
+    total_rewards = torch.zeros((args_cli.num_envs,), device=env.unwrapped.device)
     # simulate environment
     while simulation_app.is_running():
         # run everything in inference mode
         with torch.inference_mode():
             # sample actions from -1 to 1
             actions = env.action_space.sample()
-            print(actions)
+            # print(actions)
             # continousActions = torch.tensor(actions[:-1], device=env.unwrapped.device)
             # discreteActions = torch.tensor(actions[-1], device=env.unwrapped.device)[:, None]
             # actions = torch.cat([continousActions, discreteActions], dim=1)
             # apply actions
-            actions = torch.as_tensor(actions, device=env.unwrapped.device)
+            actions = torch.as_tensor(actions, device=env.unwrapped.device).float()
             observations, rewards, terminations, truncations, infos = env.step(actions)
+            total_rewards += rewards
+
+            if torch.any(terminations):
+                if any(total_rewards[terminations] < 0.1):
+                    print(f"ZERO TOTAL REWARD: {total_rewards[terminations]}")
+                total_rewards[terminations] = 0.0
 
     # close the simulator
     env.close()
