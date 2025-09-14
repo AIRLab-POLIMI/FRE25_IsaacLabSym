@@ -155,8 +155,11 @@ class WaypointHandler:
         self.markersVisualizer = VisualizationMarkers(WAYPOINT_CFG)
 
         # Select the current waypoint for each environment
+        env_indices = torch.arange(
+            self.nEnvs, device=self.currentWaypointIndices.device
+        )
         self.currentWaypointPositions = self.waypointsPositions[
-            self.currentWaypointIndices[:, 0], self.currentWaypointIndices[:, 1]
+            env_indices, self.currentWaypointIndices[:, 1]
         ]
 
         # update current marker
@@ -243,7 +246,7 @@ class WaypointHandler:
 
         # Reset the current waypoint positions for the given environment ids
         self.currentWaypointPositions[env_ids] = self.waypointsPositions[
-            self.currentWaypointIndices[env_ids, 0],
+            env_ids,
             self.currentWaypointIndices[env_ids, 1],
         ]
 
@@ -262,9 +265,10 @@ class WaypointHandler:
             dtype=torch.int,
             device=self.waypointsPositions.device,
         )
-        indexes[
-            self.currentWaypointIndices[:, 0], self.currentWaypointIndices[:, 1]
-        ] = 1
+        env_indices = torch.arange(
+            self.nEnvs, device=self.currentWaypointIndices.device
+        )
+        indexes[env_indices, self.currentWaypointIndices[:, 1]] = 1
         indexes = indexes.view(self.nEnvs * self.nWaypoints)
         self.markersVisualizer.visualize(marker_indices=indexes)
 
@@ -290,9 +294,10 @@ class WaypointHandler:
         self.currentWaypointIndices[waypointReachedAndNotAtLast, 1] += 1
 
         # Update the current waypoint position for each environment
+        env_indices_reached = torch.where(waypointReachedAndNotAtLast)[0]
         self.currentWaypointPositions[waypointReachedAndNotAtLast] = (
             self.waypointsPositions[
-                self.currentWaypointIndices[waypointReachedAndNotAtLast, 0],
+                env_indices_reached,
                 self.currentWaypointIndices[waypointReachedAndNotAtLast, 1],
             ]
         )
@@ -300,7 +305,7 @@ class WaypointHandler:
         self.taskCompleted = waypointReached & (~notAtLastWaypoint)
 
         # Update the waypoint reached buffer
-        self.waypointReachedBuffer = waypointReached
+        self.waypointReachedBuffer = self.waypointReachedBuffer | waypointReached
 
     def updateTooFarFromWaypoint(self):
         # Check if the robot is too far from the current waypoint
@@ -326,6 +331,8 @@ class WaypointHandler:
         return close_to_waypoint
 
     def getReward(self) -> torch.Tensor:
-        tmp = self.waypointReachedBuffer
-        # self.waypointReachedBuffer = torch.zeros_like(self.waypointReachedBuffer)
-        return tmp
+        return self.waypointReachedBuffer
+
+    def resetRewardBuffer(self):
+        """Reset the waypoint reached buffer after all reward calculations are done"""
+        self.waypointReachedBuffer = torch.zeros_like(self.waypointReachedBuffer)
