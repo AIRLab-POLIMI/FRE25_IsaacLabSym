@@ -322,7 +322,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # print(
         #     f"toWaypointDir: {toWaypointDir}, velocity:{velocity}, dt: {dt}, velocityTowardsWaypoint: {velocityTowardsWaypoint}"
         # )
-        velocityTowardsWaypoint *= 0
+        velocityTowardsWaypoint *= 0.1
 
         # Comunte velocity orthogonal to the waypoint direction and penalize it
         # velocityOrthogonalToWaypoint = (
