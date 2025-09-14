@@ -91,9 +91,9 @@ def main():
                 print(
                     f"Episode finished for {torch.sum(terminations).item()} envs, mean:{total_rewards_mean}, rewards: {total_rewards[terminations]}"
                 )
-                if any(total_rewards[terminations] < 0.1):
-                    print(f"ZERO TOTAL REWARD: {total_rewards[terminations]}")
-                    break
+                # if any(total_rewards[terminations] < 0.1):
+                #     print(f"ZERO TOTAL REWARD: {total_rewards[terminations]}")
+                #     break
                 total_rewards[terminations] = 0.0
 
     # close the simulator
