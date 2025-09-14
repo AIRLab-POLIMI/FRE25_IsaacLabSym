@@ -172,7 +172,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         boundViolations = torch.clamp(boundViolations, min=0.0)
         self.actionsBoundViolations = torch.sum(boundViolations, dim=1)
 
-        actions = torch.clamp(actions, -1, 1)
+        actions = torch.nn.functional.tanh(actions)
 
         self.actions = actions.clone()
         self.waypoints.visualizeWaypoints()
