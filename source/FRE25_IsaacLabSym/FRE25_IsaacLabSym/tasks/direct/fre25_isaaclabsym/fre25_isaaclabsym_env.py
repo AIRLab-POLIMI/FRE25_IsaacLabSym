@@ -71,7 +71,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.robots: Articulation = Articulation(self.cfg.robot_cfg)
 
         # add ground plane
-        spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg())
+        spawn_ground_plane(
+            prim_path="/World/ground", cfg=GroundPlaneCfg(size=(10000000, 10000000))
+        )
 
         # clone and replicate
         self.scene.clone_environments(copy_from_source=False)
@@ -163,8 +165,6 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # print("PRE PHYSICS STEP")
         # Update robot position and waypoint detection
         self.past_robot_pose = self.robot_pose
-        self.robot_pose = self.robots.data.root_state_w[:, :2]
-        self.waypoints.updateCurrentDiffs(self.robot_pose)
 
         # Compute bound violations
         absoluteActions = torch.abs(actions)
@@ -179,6 +179,10 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.waypoints.updateCurrentMarker()
 
     def _apply_action(self) -> None:
+        # Update robot position and waypoint detection at each action step
+        self.robot_pose = self.robots.data.root_state_w[:, :2]
+        self.waypoints.updateCurrentDiffs(self.robot_pose)
+
         # print("APPLY ACTION")
         if not hasattr(self, "actions"):
             return
@@ -293,6 +297,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         waypointReward = (
             self.waypoints.getReward().float() * 10 / self.waypoints.waypointsPerRow
         )  # (n_envs,)
+        self.waypoints.resetRewardBuffer()
 
         # Reward for moving towards the waypoint computed as the dot product between the robot velocity and the normalized vector from the robot to the waypoint
         toWaypoint = self.waypoints.robotsdiffs
@@ -358,6 +363,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             + actionBoundViolationPenalty
         )
         # print(f"totalReward: {totalReward}")
+
         return totalReward / 10
 
     def _get_observations(self) -> dict:
@@ -438,6 +444,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Reset waypoints
         self.waypoints.resetWaypoints(env_ids)
+
+        # Reset waypoint reward buffer
+        self.waypoints.resetRewardBuffer()
 
         # RESET BUFFERS
 
