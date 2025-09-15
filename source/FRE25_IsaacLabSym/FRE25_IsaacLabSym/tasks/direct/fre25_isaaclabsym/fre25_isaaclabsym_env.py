@@ -129,7 +129,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Add Plants to the scene
         self.plants = PlantHandler(
-            nPlants=80,
+            nPlants=100,
             envsOrigins=self.scene.env_origins,
             plantRadius=0.22,
         )
