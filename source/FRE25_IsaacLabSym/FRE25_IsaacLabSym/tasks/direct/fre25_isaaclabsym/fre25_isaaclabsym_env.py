@@ -102,7 +102,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             device=self.device,
             nEnvs=self.scene.num_envs,
             nPaths=6,
-            pathsSpacing=1.5,
+            pathsSpacing=1.2,
             nControlPoints=10,
             pathLength=3,
             pathWidth=0.1,
