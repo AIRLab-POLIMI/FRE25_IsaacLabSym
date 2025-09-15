@@ -104,7 +104,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             nPaths=6,
             pathsSpacing=1.2,
             nControlPoints=10,
-            pathLength=3,
+            pathLength=4,
             pathWidth=0.1,
             pointNoiseStd=0,
         )
