@@ -31,6 +31,7 @@ from .WaypointRelated.WaypointHandler import WaypointHandler
 from .PlantRelated.PlantHandler import PlantHandler
 from .PathHandler import PathHandler
 from .CommandBuffer import CommandBuffer
+from .CommandBuffer.CommandMarkerVisualizer import CommandBufferVisualizer
 
 # import torch.autograd.profiler as profiler
 import isaaclab.sim.schemas as schemas
@@ -87,6 +88,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Add waypoint markers to the scene
         self.waypoint_markers = VisualizationMarkers(WAYPOINT_CFG)
+
+        # Initialize Command Visualizer
+        self.command_visualizer = CommandBufferVisualizer()
 
         # Initialize command buffer
         self.commandBuffer = CommandBuffer(
@@ -177,6 +181,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.actions = actions.clone()
         self.waypoints.visualizeWaypoints()
         self.waypoints.updateCurrentMarker()
+
+        self.command_visualizer.visualizeCommands(self.robots.data.root_state_w[:, :3], self.commandBuffer)
 
     def _apply_action(self) -> None:
         # Update robot position and waypoint detection at each action step
