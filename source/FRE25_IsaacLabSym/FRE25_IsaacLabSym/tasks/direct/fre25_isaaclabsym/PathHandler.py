@@ -54,11 +54,39 @@ class PathHandler:
         assert envIds.max() < self.nEnvs, "envIds must be less than nEnvs, got max: {}".format(envIds.max())
         assert envIds.min() >= 0, "envIds must be non-negative, got min: {}".format(envIds.min())
         t = torch.linspace(0, 1, nPoints, device=self.device)
-        points = self.spline.evaluate(t)[envIds]
+        points = self.spline.evaluate(t)[envIds]  # n_envs x nPoints x 2
 
         # Sample the path number
         pathNumber = torch.randint(0, self.nPaths, (envIds.shape[0], nPoints,), device=self.device)
         points[:, :, 1] += (pathNumber - 0.5 - (self.nPaths - 1) // 2) * self.pathsSpacing
+
+        # Gaussian noise
+        noise = torch.randn_like(points, device=self.device) * self.pointNoiseStd
+        points += noise
+
+        return points
+
+    def gridPoints(self, envIds: torch.Tensor, nPoints: int):
+        '''
+        Sample points on a grid along the path for the given environments.
+        The points are sampled along the path and then shifted in the y direction
+        based on the path index to create multiple parallel paths.'''
+        assert hasattr(self, 'spline'), "Spline not generated. Call generatePath() first."
+        assert nPoints > 0, "Number of points must be positive, got {}".format(nPoints)
+        assert envIds.dim() == 1, "envIds must be a 1D tensor, got {}D".format(envIds.dim())
+        assert envIds.size(0) > 0, "envIds must not be empty"
+        assert envIds.max() < self.nEnvs, "envIds must be less than nEnvs, got max: {}".format(envIds.max())
+        assert envIds.min() >= 0, "envIds must be non-negative, got min: {}".format(envIds.min())
+        t = torch.linspace(0, 1, nPoints // self.nPaths, device=self.device)
+        points = self.spline.evaluate(t)[envIds]  # n_envs x nPoints/nPaths x 2
+        points = points.repeat(1, self.nPaths, 1)  # n_envs x nPoints x 2
+
+        # Sample the path number
+        pathNumber = torch.arange(0, self.nPaths, device=self.device)  # nPaths
+        yOffset = (pathNumber - 0.5 - (self.nPaths - 1) // 2) * self.pathsSpacing  # nPaths
+        # Repeat elementwise
+        yOffset = yOffset.repeat_interleave(nPoints // self.nPaths)  # nPoints
+        points[:, :, 1] += yOffset
 
         # Gaussian noise
         noise = torch.randn_like(points, device=self.device) * self.pointNoiseStd

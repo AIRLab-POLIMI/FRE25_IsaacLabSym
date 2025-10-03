@@ -109,8 +109,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             pathsSpacing=1.2,
             nControlPoints=10,
             pathLength=4,
-            pathWidth=0.1,
-            pointNoiseStd=0,
+            pathWidth=0.15,
+            pointNoiseStd=0.03,
         )
 
         self.paths.generatePath()
@@ -133,7 +133,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Add Plants to the scene
         self.plants = PlantHandler(
-            nPlants=100,
+            nPlants=60,
             envsOrigins=self.scene.env_origins,
             plantRadius=0.22,
         )

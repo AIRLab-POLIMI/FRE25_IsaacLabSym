@@ -72,7 +72,7 @@ class PlantHandler:
 
         objStates = self.plants.data.object_state_w[env_ids]
 
-        pathPosition = pathHandler.samplePoints(env_ids, self.nPlants)
+        pathPosition = pathHandler.gridPoints(env_ids, self.nPlants)
         objStates[:, :, :2] = envOrigins[:, :, :2] + pathPosition
 
         self.plants.write_object_state_to_sim(objStates, env_ids)
