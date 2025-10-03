@@ -5,13 +5,13 @@ seed: 42
 # https://skrl.readthedocs.io/en/latest/api/utils/model_instantiators.html
 models:
   separate: False
-  policy:  # see gaussian_model parameters
-    class: MultivariateGaussianMixin
+  policy:  # see multi_categorical_model parameters
+    class: MultiCategoricalMixin
     clip_actions: False
-    clip_log_std: True
-    min_log_std: -20.0
-    max_log_std: 0.0
-    initial_log_std: -0.3
+    unnormalized_log_prob: True
+    reduction: sum  # Sum log probs for storage, custom get_entropy handles aggregation safely
+    num_actions: 6  # Number of discrete action dimensions
+    num_categories: 3  # Number of categories per action {-1, 0, 1}
     network:
       - name: net
         input: STATES
@@ -59,7 +59,7 @@ agent:
   ratio_clip: 0.2
   value_clip: 0.2
   clip_predicted_values: True
-  entropy_loss_scale: 0.001 # Add exploration
+  entropy_loss_scale: 0.001 # Entropy regularization for exploration
   value_loss_scale: 2.0
   kl_threshold: 0.0
   rewards_shaper_scale: 1.0

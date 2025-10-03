@@ -1,0 +1,36 @@
+# Stable-Baselines3 PPO Configuration for FRE25 with DISCRETE Actions
+# Uses MultiDiscrete action space: 6 actions, each with 3 categories {-1, 0, 1}
+
+seed: 42
+
+# Training parameters
+n_timesteps: 10000000  # Total timesteps for training
+n_steps: 2048  # Number of steps to run per environment per update
+batch_size: 2048  # Minibatch size - increased for better GPU utilization
+n_epochs: 10  # Number of epochs when optimizing the surrogate loss
+
+# PPO hyperparameters
+learning_rate: 0.0003  # Learning rate
+gamma: 0.996  # Discount factor (horizon ~250 steps)
+gae_lambda: 0.95  # Factor for trade-off of bias vs variance for GAE
+clip_range: 0.2  # Clipping parameter for PPO
+ent_coef: 0.01  # Entropy coefficient for the loss calculation (higher for discrete actions)
+vf_coef: 2.0  # Value function coefficient for the loss calculation
+max_grad_norm: 1.0  # Max value for gradient clipping
+
+# Network architecture
+# For MultiDiscrete, SB3 automatically handles the output layer
+policy: "MlpPolicy"  # Use MlpPolicy for simple Box observations, "MultiInputPolicy" for dict obs
+
+# Policy network architecture
+policy_kwargs:
+  net_arch:
+    - 512
+    - 256  
+    - 128
+  ortho_init: true  # Use orthogonal initialization
+
+# Normalization
+normalize_input: false  # Normalize observations
+normalize_value: false  # Normalize rewards
+clip_obs: 10.0  # Clip observations

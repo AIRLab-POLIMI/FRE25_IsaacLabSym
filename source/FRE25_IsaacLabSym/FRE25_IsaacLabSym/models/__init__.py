@@ -3,6 +3,6 @@
 
 """Custom models for reinforcement learning."""
 
-from .Policy import CustomPolicy, CustomValue
+from .Policy import CustomPolicy, CustomValue, DiscretePolicy
 
-__all__ = ["CustomPolicy", "CustomValue"]
+__all__ = ["CustomPolicy", "CustomValue", "DiscretePolicy"]

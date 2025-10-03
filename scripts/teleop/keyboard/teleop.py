@@ -85,17 +85,38 @@ def main():
     while simulation_app.is_running():
         # run everything in inference mode
         with torch.inference_mode():
-            kinematicCommands, stepCommand = keyboardManager.advance()
+            kinematicCommands, stepCommand = keyboardManager.advance()            # For discrete action space: convert continuous keyboard input to discrete {-1, 0, 1}
+            # kinematicCommands contains [steering, throttle] as continuous values
+            # We need to discretize them and also handle the 4 hidden state accumulators
 
-            # sample actions from -1 to 1
-            actions = env.action_space.sample()
-            actions = torch.tensor([actions], device=env.unwrapped.device).squeeze(1).float()  # type: ignore
-            continousActions = torch.tensor([kinematicCommands], device=env.unwrapped.device)  # type: ignore
-            discreteActions = torch.tensor([stepCommand], device=env.unwrapped.device)[:, None]  # type: ignore
-            # actions = torch.cat([continousActions, discreteActions], dim=1)
+            # Convert to discrete actions for all 6 dimensions
+            # Dimensions 0-1: steering and throttle (from keyboard)
+            # Dimensions 2-5: hidden state accumulators (set to 0 - no change)
+
+            # Steering: negative = left (index 0 → -1), positive = right (index 2 → +1)
+            steering_discrete = 1  # Default: no change (index 1 → 0)
+            if kinematicCommands[0] > 0.1:
+                steering_discrete = 2  # Right (index 2 → +1)
+            elif kinematicCommands[0] < -0.1:
+                steering_discrete = 0  # Left (index 0 → -1)
+
+            # Throttle: positive = forward (index 2 → +1), negative = backward (index 0 → -1)
+            throttle_discrete = 1  # Default: no change (index 1 → 0)
+            if kinematicCommands[1] > 0.1:
+                throttle_discrete = 2  # Forward (index 2 → +1)
+            elif kinematicCommands[1] < -0.1:
+                throttle_discrete = 0  # Backward (index 0 → -1)
+
+            # Create discrete action tensor: [steering, throttle, acc1, acc2, acc3, acc4]
+            # All indices are in [0, 1, 2] which the environment converts to [-1, 0, +1]
+            discrete_actions = torch.tensor(
+                [[steering_discrete, throttle_discrete, 1, 1, 1, 1]],  # 1 = no change (0)
+                device=env.unwrapped.device,  # type: ignore
+                dtype=torch.long
+            )
+
             # apply actions
-            actions[:, :2] = continousActions
-            observations, rewards, terminations, truncations, infos = env.step(actions)
+            observations, rewards, terminations, truncations, infos = env.step(discrete_actions)
 
             totalReward += rewards.item()
 

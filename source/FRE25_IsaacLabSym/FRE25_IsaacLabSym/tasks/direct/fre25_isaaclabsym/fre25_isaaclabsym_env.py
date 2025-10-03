@@ -38,7 +38,7 @@ import isaaclab.sim.schemas as schemas
 from isaaclab.utils.math import axis_angle_from_quat as quat2axis
 
 import matplotlib.pyplot as plt
-from gymnasium.spaces import Box
+from gymnasium.spaces import Box, MultiDiscrete
 
 
 class Fre25IsaaclabsymEnv(DirectRLEnv):
@@ -48,7 +48,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self, cfg: Fre25IsaaclabsymEnvCfg, render_mode: str | None = None, **kwargs
     ):
         cfg.nActions = cfg.action_space
-        cfg.action_space = Box(low=-1, high=1, shape=(cfg.nActions,), dtype=float)  # type: ignore
+        # Discrete action space: 6 actions, each with 3 categories {-1, 0, 1}
+        cfg.action_space = MultiDiscrete([3] * cfg.nActions)  # type: ignore
         self.cfg = cfg
         super().__init__(cfg, render_mode, **kwargs)
 
@@ -170,13 +171,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Update robot position and waypoint detection
         self.past_robot_pose = self.robot_pose
 
-        # Compute bound violations
-        absoluteActions = torch.abs(actions)
-        boundViolations = absoluteActions - 2
-        boundViolations = torch.clamp(boundViolations, min=0.0)
-        self.actionsBoundViolations = torch.sum(boundViolations, dim=1)
-
-        actions = torch.nn.functional.tanh(actions)
+        # Convert discrete action indices {0, 1, 2} to continuous values {-1, 0, +1}
+        # actions come as integer indices from the discrete policy
+        actions = (actions - 1).float()  # Maps: 0→-1, 1→0, 2→+1
 
         self.actions = actions.clone()
         self.waypoints.visualizeWaypoints()
@@ -354,10 +351,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
         outOfBoundsPenalty = out_of_bounds.float() * 0  # -50
 
-        # Penalty for action bound violations
-        actionBoundViolationPenalty = (
-            -0 * self.actionsBoundViolations.float() ** 2
-        )  # -1
+        # Note: No action bound violation penalty for discrete actions
 
         totalReward = (
             waypointReward
@@ -366,7 +360,6 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             + timeOutPenalty
             + plantCollisionPenalty
             + outOfBoundsPenalty
-            + actionBoundViolationPenalty
         )
         # print(f"totalReward: {totalReward}")
 
@@ -477,16 +470,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Reset past lidar
         self.pastLidar[env_ids] = 0.0
 
-        # Reset actions
+        # Reset actions to 0.0 (which corresponds to discrete index 1 after conversion)
         self.actions[env_ids] = 0.0
-
-        # Reset action bound violations
-        if hasattr(self, "actionsBoundViolations"):
-            self.actionsBoundViolations[env_ids] = 0.0
 
         # Reset hidden state accumulator
         self.hidden_state_accumulator[env_ids] = 0.0
-
-        # Reset the action buffer
-        self.actions[env_ids] = torch.zeros(self.cfg.nActions, device=self.device)
-        pass

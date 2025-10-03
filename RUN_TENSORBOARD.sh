@@ -1,1 +1,1 @@
-tensorboard --logdir=./logs/skrl/fre25_isaaclabsym_ppo
+tensorboard --logdir=./logs/sb3/Fre25-Isaaclabsym-Direct-v0

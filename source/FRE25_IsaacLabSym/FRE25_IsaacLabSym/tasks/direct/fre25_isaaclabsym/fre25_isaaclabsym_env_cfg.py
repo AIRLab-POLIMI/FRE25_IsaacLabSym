@@ -19,7 +19,7 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     decimation = 4
     episode_length_s = 60.0
     # - spaces definition
-    action_space = 6  # (2, {2})
+    action_space = 6  # 6 discrete actions, each with 3 categories {-1, 0, 1}
 
     # 1 current steering + 6 past actions + 40 lidar  + 3 command buffer (maxRows=1 + isItRight? 1 + 1 * parity) + 4 hidden state
     observation_space = 1 + 6 + 40 * 1 + 3 + 4

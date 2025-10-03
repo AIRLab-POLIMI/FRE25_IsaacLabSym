@@ -111,6 +111,8 @@ if args_cli.ml_framework.startswith("torch"):
     from skrl.memories.torch import RandomMemory
     from skrl.trainers.torch import SequentialTrainer
     from skrl.resources.schedulers.torch import KLAdaptiveLR
+    # Import custom PPO for MultiCategorical action spaces
+    from FRE25_IsaacLabSym.agents import PPO_MultiCategorical
 elif args_cli.ml_framework.startswith("jax"):
     import jax
     from skrl.agents.jax.ppo import PPO, PPO_DEFAULT_CONFIG
@@ -135,7 +137,7 @@ import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
 import FRE25_IsaacLabSym.tasks  # noqa: F401
-from FRE25_IsaacLabSym.models import CustomPolicy, CustomValue
+from FRE25_IsaacLabSym.models import CustomPolicy, CustomValue, DiscretePolicy
 
 # config shortcuts
 algorithm = args_cli.algorithm.lower()
@@ -259,19 +261,39 @@ def main(
     value_hidden_sizes = value_network["layers"]
     value_activation = value_network["activations"]
 
+    # Determine if using discrete or continuous policy based on action space
+    from gymnasium.spaces import MultiDiscrete
+    is_discrete = isinstance(env.action_space, MultiDiscrete)
+
     # Create policy model
-    policy = CustomPolicy(
-        observation_space=env.observation_space,
-        action_space=env.action_space,
-        device=device,
-        clip_actions=policy_cfg.get("clip_actions", False),
-        clip_log_std=policy_cfg.get("clip_log_std", True),
-        min_log_std=policy_cfg.get("min_log_std", -20),
-        max_log_std=policy_cfg.get("max_log_std", 2),
-        initial_log_std=policy_cfg.get("initial_log_std", 0),
-        hidden_sizes=policy_hidden_sizes,
-        activation=policy_activation
-    )
+    if is_discrete:
+        print("[INFO] Using DiscretePolicy for MultiDiscrete action space")
+        policy = DiscretePolicy(
+            observation_space=env.observation_space,
+            action_space=env.action_space,
+            device=device,
+            clip_actions=policy_cfg.get("clip_actions", False),
+            unnormalized_log_prob=policy_cfg.get("unnormalized_log_prob", True),
+            reduction=policy_cfg.get("reduction", "sum"),
+            hidden_sizes=policy_hidden_sizes,
+            activation=policy_activation,
+            num_actions=policy_cfg.get("num_actions", 6),
+            num_categories=policy_cfg.get("num_categories", 3)
+        )
+    else:
+        print("[INFO] Using CustomPolicy for continuous action space")
+        policy = CustomPolicy(
+            observation_space=env.observation_space,
+            action_space=env.action_space,
+            device=device,
+            clip_actions=policy_cfg.get("clip_actions", False),
+            clip_log_std=policy_cfg.get("clip_log_std", True),
+            min_log_std=policy_cfg.get("min_log_std", -20),
+            max_log_std=policy_cfg.get("max_log_std", 2),
+            initial_log_std=policy_cfg.get("initial_log_std", 0),
+            hidden_sizes=policy_hidden_sizes,
+            activation=policy_activation
+        )
 
     # Create value model
     value = CustomValue(
@@ -314,8 +336,15 @@ def main(
     memory = RandomMemory(memory_size=memory_size, num_envs=env.num_envs, device=device)
 
     # Instantiate the PPO agent
+    # Use custom PPO for MultiDiscrete action spaces (fixes stddev tracking bug)
     print("[INFO] Creating PPO agent...")
-    agent = PPO(
+    is_discrete = hasattr(env.action_space, 'nvec')  # MultiDiscrete has 'nvec' attribute
+    PPO_class = PPO_MultiCategorical if is_discrete else PPO
+
+    if is_discrete:
+        print("[INFO] Using PPO_MultiCategorical for discrete action space")
+
+    agent = PPO_class(
         models=models,
         memory=memory,
         cfg=ppo_cfg,
