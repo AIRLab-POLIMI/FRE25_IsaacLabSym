@@ -406,11 +406,11 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         obs = torch.cat(
             (
-                self.steering_buffer[:, [0]],
-                self.actions,
-                lidar,
-                currentCommands,
-                self.hidden_state_accumulator,
+                self.steering_buffer[:, [0]],  # The Current Steering Angle
+                self.actions,  # The Previous Action
+                lidar,  # The Current Lidar Readings
+                currentCommands,  # The Current Commands
+                self.hidden_state_accumulator,  # The Hidden State Accumulator
             ),
             dim=-1,
         )
