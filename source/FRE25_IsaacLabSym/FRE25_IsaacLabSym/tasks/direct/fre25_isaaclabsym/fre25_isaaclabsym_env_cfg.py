@@ -8,7 +8,7 @@ from isaaclab_assets.robots.cartpole import CARTPOLE_CFG
 from isaaclab.assets import ArticulationCfg
 from isaaclab.envs import DirectRLEnvCfg
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.sim import SimulationCfg
+from isaaclab.sim import SimulationCfg, PhysxCfg
 from isaaclab.utils import configclass
 from .RockerBot import ROCKERBOT_CFG, wheelsJoints, steeringJoints
 
@@ -26,8 +26,19 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
 
     state_space = 0
 
-    # simulation
-    sim: SimulationCfg = SimulationCfg(dt=1 / 120, render_interval=decimation)
+    # simulation with increased GPU memory for many environments
+    sim: SimulationCfg = SimulationCfg(
+        dt=1 / 120,
+        render_interval=decimation,
+        physx=PhysxCfg(
+            gpu_max_rigid_contact_count=2**23,  # Increased for many environments
+            gpu_max_rigid_patch_count=2**21,
+            gpu_found_lost_pairs_capacity=2**25,  # Fix for found/lost pairs error
+            gpu_found_lost_aggregate_pairs_capacity=2**20,
+            gpu_total_aggregate_pairs_capacity=2**20,
+            gpu_collision_stack_size=2**28,  # Fix for collision stack overflow (1GB)
+        )
+    )
 
     # robot(s)
     robot_cfg: ArticulationCfg = ROCKERBOT_CFG.replace(

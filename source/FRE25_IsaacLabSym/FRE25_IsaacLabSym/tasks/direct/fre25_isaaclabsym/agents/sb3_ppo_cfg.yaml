@@ -4,9 +4,9 @@
 seed: 42
 
 # Training parameters
-n_timesteps: 10000000  # Total timesteps for training
-n_steps: 2048  # Number of steps to run per environment per update
-batch_size: 2048  # Minibatch size - increased for better GPU utilization
+n_timesteps: 10000000000000000  # Total timesteps for training
+n_steps: 2048  # Number of steps per environment per update - increased for GPU
+batch_size: 2048  # Minibatch size - increased for maximum GPU utilization
 n_epochs: 10  # Number of epochs when optimizing the surrogate loss
 
 # PPO hyperparameters

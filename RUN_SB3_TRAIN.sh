@@ -5,7 +5,7 @@
 ISAAC_LAB_PATH="${HOME}/Desktop/PaoloGinefraMultidisciplinaryProject/IsaacLab"
 
 # Run training with SB3
-# Increased num_envs to 128 for better GPU utilization
+# 512 environments - balanced between GPU usage and stability
 ${ISAAC_LAB_PATH}/isaaclab.sh -p scripts/sb3/train.py \
     --task Fre25-Isaaclabsym-Direct-v0 \
     --num_envs 128 \
