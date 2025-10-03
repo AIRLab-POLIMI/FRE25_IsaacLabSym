@@ -268,9 +268,29 @@ class WaypointHandler:
         env_indices = torch.arange(
             self.nEnvs, device=self.currentWaypointIndices.device
         )
+        # Set the past waypoints (blue)
+        indexes[env_indices, : self.currentWaypointIndices[:, 1]] = 2
+
+        # Set the current waypoint (green)
         indexes[env_indices, self.currentWaypointIndices[:, 1]] = 1
         indexes = indexes.view(self.nEnvs * self.nWaypoints)
-        self.markersVisualizer.visualize(marker_indices=indexes)
+
+        # Set the scales of the markers
+        scales = torch.ones(
+            (self.nEnvs, self.nWaypoints, 3),
+            dtype=torch.float32,
+            device=self.waypointsPositions.device,
+        )
+
+        # Set the scale to waypoints more than 3 in the future to 0.2
+        futureIndex = torch.clamp(
+            self.currentWaypointIndices[:, 1] + 3, max=self.nWaypoints - 1
+        )
+        scales[:, futureIndex:] = 0.2
+
+        self.markersVisualizer.visualize(
+            marker_indices=indexes, scales=scales.view(-1, 3)
+        )
 
     def diffToCurrentWaypoint(self, robot_pos_xy: torch.Tensor) -> torch.Tensor:
         """
