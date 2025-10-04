@@ -1,13 +1,14 @@
 # @package _global_
 # MLP Policy Configuration
-# Fast, feedforward network with optional hidden states for memory
-# Hidden states: policy outputs dummy actions that don't control robot
+# Fast, feedforward network with binary hidden states for memory
+# Hidden states: policy outputs dummy BINARY actions {-1, +1} that don't control robot
 # ALL past actions (control + hidden) are fed back as observations
 # 
 # Control actions:
-#   - steering: agent controls left/right turning
-#   - throttle: agent controls forward/backward speed
-#   - step_command: agent decides when to advance command buffer (NEW!)
+#   - steering: agent controls left/right turning (3 categories: {-1, 0, 1})
+#   - throttle: agent controls forward/backward speed (3 categories: {-1, 0, 1})
+#   - step_command: agent decides when to advance command buffer (2 categories: {0, 1})
+# Hidden actions: (2 categories each: {-1, +1}) - binary, no neutral state
 # 
 # Usage: ./RUN_SB3_TRAIN.sh policy=mlp
 
@@ -19,6 +20,7 @@ policy_class: "MlpPolicy"
 # Hidden states configuration
 # Policy outputs: [steering, throttle, step_command, hidden1, hidden2, ...]
 # ALL past actions are fed back as observations to provide temporal memory
+# Hidden states are BINARY: {0, 1} → {-1, +1} (no neutral state)
 # Set to 0 to disable, or positive integer for number of hidden state dimensions
 num_hidden_states: 8 # Options: 0 (none), 2, 4, 8, 16, etc.
 

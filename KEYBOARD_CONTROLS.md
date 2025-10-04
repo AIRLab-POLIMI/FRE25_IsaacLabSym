@@ -38,9 +38,10 @@ The keyboard inputs are converted to discrete actions that match the agent's act
   - 1: E key held down
   - The environment uses rising edge detection (transition from 0→1) to advance the command buffer
 
-- **Hidden States**: All default to 1 (no change → 0) in teleop mode
+- **Hidden States**: All default to 0 (→ -1) in teleop mode
+  - Binary actions: {0, 1} → {-1, +1} (no neutral state)
   - The number of hidden states is read dynamically from the environment config (`num_hidden_states`)
-  - These are automatically populated with neutral values during teleop
+  - These are automatically populated with default values (0 → -1) during teleop
 
 ## How the Step Command Works
 

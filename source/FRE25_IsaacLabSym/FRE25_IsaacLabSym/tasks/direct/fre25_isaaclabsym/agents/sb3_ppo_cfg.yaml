@@ -4,7 +4,7 @@
 #   - steering: 3 categories {-1, 0, 1}
 #   - throttle: 3 categories {-1, 0, 1}
 #   - step_command: 2 categories {0, 1} - agent decides when to advance command buffer
-# Hidden actions: dummy actions that don't affect robot, used for policy memory
+# Hidden actions: 2 categories {-1, +1} each (binary) - provide policy memory without neutral state
 # 
 # ALL past actions (control + hidden) are fed back as observations
 # 
@@ -27,6 +27,7 @@ policy_class: MlpPolicy  # MlpPolicy for MLP, MlpLstmPolicy for LSTM
 # Hidden actions are "dummy" outputs that don't control the robot
 # The policy outputs: [steering, throttle, step_command, hidden1, hidden2, ...]
 # ALL past actions are fed back as observations to provide memory
+# Hidden actions are BINARY: {0, 1} → {-1, +1} (no neutral state)
 # Example: num_hidden_states=2 → 5 total actions (3 control + 2 hidden)
 num_hidden_states: 8  # Default: 8 hidden state dimensions (set to 0 to disable)
 

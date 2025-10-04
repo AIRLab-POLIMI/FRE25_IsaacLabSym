@@ -121,9 +121,10 @@ def main():
             step_command_discrete = 1 if stepCommand else 0
 
             # Create discrete action tensor: [steering, throttle, step_command, hidden_1, ..., hidden_N]
-            # Hidden states default to 1 (no change → 0 after conversion)
+            # Hidden states are binary {0, 1} which map to {-1, +1} after conversion
+            # Default to 0 (which becomes -1) for neutral/inactive state
             control_actions = [steering_discrete, throttle_discrete, step_command_discrete]
-            hidden_actions = [1] * num_hidden_states  # All hidden states default to 1 (neutral)
+            hidden_actions = [0] * num_hidden_states  # All hidden states default to 0 (→ -1 after conversion)
             all_actions = control_actions + hidden_actions
 
             discrete_actions = torch.tensor(

@@ -58,9 +58,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # - steering: 3 categories {-1, 0, 1}
         # - throttle: 3 categories {-1, 0, 1}
         # - step_command: 2 categories {0, 1}
-        # - hidden states: 3 categories {-1, 0, 1} each
+        # - hidden states: 2 categories {-1, 1} each (binary actions)
         num_hidden = getattr(cfg, 'num_hidden_states', 0)
-        action_categories = [3, 3, 2] + [3] * num_hidden  # steering, throttle, step_cmd, hidden...
+        action_categories = [3, 3, 2] + [2] * num_hidden  # steering, throttle, step_cmd, hidden...
         cfg.action_space = MultiDiscrete(action_categories)  # type: ignore
 
         print(f"[ENV __init__] Created MultiDiscrete with {cfg.nActions} actions:")
@@ -68,7 +68,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         print(f"[ENV __init__]   - Throttle: 3 categories {{-1, 0, 1}}")
         print(f"[ENV __init__]   - Step Command: 2 categories {{0, 1}}")
         if num_hidden > 0:
-            print(f"[ENV __init__]   - Hidden States: {num_hidden} × 3 categories {{-1, 0, 1}}")
+            print(f"[ENV __init__]   - Hidden States: {num_hidden} × 2 categories {{-1, 1}} (binary)")
 
         self.cfg = cfg
         super().__init__(cfg, render_mode, **kwargs)
@@ -202,18 +202,18 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Action 0 (steering): {0, 1, 2} → {-1, 0, +1}
         # Action 1 (throttle): {0, 1, 2} → {-1, 0, +1}
         # Action 2 (step_command): {0, 1} → {0, 1} (keep as is, then convert to bool)
-        # Actions 3+ (hidden): {0, 1, 2} → {-1, 0, +1}
+        # Actions 3+ (hidden): {0, 1} → {-1, +1} (binary)
 
-        # Convert actions - handle step_command differently
+        # Convert actions - handle step_command and hidden states differently
         converted_actions = actions.clone().float()
         # Steering and throttle: subtract 1 to get {-1, 0, 1}
         converted_actions[:, 0] = actions[:, 0] - 1  # steering
         converted_actions[:, 1] = actions[:, 1] - 1  # throttle
         # step_command stays as {0, 1}
         converted_actions[:, 2] = actions[:, 2]
-        # Hidden states: subtract 1 to get {-1, 0, 1}
+        # Hidden states: convert {0, 1} → {-1, +1}
         if self.num_hidden_states > 0:
-            converted_actions[:, 3:] = actions[:, 3:] - 1
+            converted_actions[:, 3:] = actions[:, 3:] * 2 - 1  # 0→-1, 1→+1
 
         self.actions = converted_actions
         self.waypoints.visualizeWaypoints()
