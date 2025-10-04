@@ -99,12 +99,14 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         print(f"[INFO] 🔧 Enabling {num_hidden_states} hidden states for MLP")
         env_cfg.num_hidden_states = num_hidden_states
         # Update action and observation spaces
-        # Actions: 2 control (steering, throttle) + N hidden states
-        env_cfg.action_space = 2 + num_hidden_states
-        # Observations: 44 base + (2 + N) past actions (ALL actions fed back)
-        env_cfg.observation_space = 44 + (2 + num_hidden_states)
-        print(f"[INFO]    Action space: {env_cfg.action_space} (2 control + {num_hidden_states} hidden states)")
-        print(f"[INFO]    Observation space: {env_cfg.observation_space} (44 base + {2 + num_hidden_states} past actions)")
+        # Actions: 3 control (steering, throttle, step_command) + N hidden states
+        env_cfg.action_space = 3 + num_hidden_states
+        # Observations: 44 base + (3 + N) past actions (ALL actions fed back)
+        env_cfg.observation_space = 44 + (3 + num_hidden_states)
+        print(f"[INFO]    Action space: {env_cfg.action_space} (3 control + {num_hidden_states} hidden states)")
+        print(f"[INFO]      - Control: steering, throttle, step_command")
+        print(f"[INFO]      - Hidden: {num_hidden_states} state dimensions")
+        print(f"[INFO]    Observation space: {env_cfg.observation_space} (44 base + {3 + num_hidden_states} past actions)")
     elif num_hidden_states > 0 and policy_type == "lstm":
         print(f"[WARN] ⚠️  Hidden states ignored for LSTM policy (LSTM has built-in memory)")
         num_hidden_states = 0

@@ -20,7 +20,10 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     episode_length_s = 60.0
 
     # - spaces definition
-    action_space = 2  # Base actions: steering and wheels, each with 3 categories {-1, 0, 1}
+    action_space = 3  # Base control actions: steering, throttle, step_command
+    # steering: 3 categories {-1, 0, 1}
+    # throttle: 3 categories {-1, 0, 1}
+    # step_command: 2 categories {0, 1} - binary action to advance command buffer
 
     # Hidden states support (configurable via agent config)
     # If num_hidden_states > 0, add extra dummy actions for memory
@@ -29,7 +32,7 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
 
     # Base observation space (without past actions):
     # 1 current steering + 40 lidar + 3 command buffer = 44 total
-    # If hidden states enabled: 44 + (2 + num_hidden_states) for past actions
+    # If hidden states enabled: 44 + (3 + num_hidden_states) for past actions
     observation_space = 1 + 40 * 1 + 3
 
     state_space = 0

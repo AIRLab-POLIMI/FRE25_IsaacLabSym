@@ -76,6 +76,16 @@ def main():
     # print info (this is vectorized environment)
     print(f"[INFO]: Gym observation space: {env.observation_space}")
     print(f"[INFO]: Gym action space: {env.action_space}")
+
+    # Get number of hidden states from environment config
+    num_hidden_states = getattr(env.unwrapped.cfg, 'num_hidden_states', 0)  # type: ignore
+    num_control_actions = 3  # steering, throttle, step_command
+    num_total_actions = num_control_actions + num_hidden_states
+
+    print(f"[INFO]: Number of control actions: {num_control_actions} (steering, throttle, step_command)")
+    print(f"[INFO]: Number of hidden state actions: {num_hidden_states}")
+    print(f"[INFO]: Total actions: {num_total_actions}")
+
     # reset environment
     env.reset()
     keyboardManager = KeyboardManager()
@@ -85,13 +95,13 @@ def main():
     while simulation_app.is_running():
         # run everything in inference mode
         with torch.inference_mode():
-            kinematicCommands, stepCommand = keyboardManager.advance()            # For discrete action space: convert continuous keyboard input to discrete {-1, 0, 1}
-            # kinematicCommands contains [steering, throttle] as continuous values
-            # We need to discretize them and also handle the 4 hidden state accumulators
+            kinematicCommands, stepCommand = keyboardManager.advance()
 
-            # Convert to discrete actions for all 6 dimensions
-            # Dimensions 0-1: steering and throttle (from keyboard)
-            # Dimensions 2-5: hidden state accumulators (set to 0 - no change)
+            # For discrete action space: convert continuous keyboard input to discrete {-1, 0, 1}
+            # kinematicCommands contains [steering, throttle] as continuous values
+            # stepCommand is True when 'E' key is held down (allows agent to step command buffer)
+            # We need to discretize them for the new action space:
+            # Actions: [steering, throttle, step_command, hidden_state_1, ..., hidden_state_N]
 
             # Steering: negative = left (index 0 → -1), positive = right (index 2 → +1)
             steering_discrete = 1  # Default: no change (index 1 → 0)
@@ -107,10 +117,17 @@ def main():
             elif kinematicCommands[1] < -0.1:
                 throttle_discrete = 0  # Backward (index 0 → -1)
 
-            # Create discrete action tensor: [steering, throttle, acc1, acc2, acc3, acc4]
-            # All indices are in [0, 1, 2] which the environment converts to [-1, 0, +1]
+            # Step command: binary action {0, 1}
+            step_command_discrete = 1 if stepCommand else 0
+
+            # Create discrete action tensor: [steering, throttle, step_command, hidden_1, ..., hidden_N]
+            # Hidden states default to 1 (no change → 0 after conversion)
+            control_actions = [steering_discrete, throttle_discrete, step_command_discrete]
+            hidden_actions = [1] * num_hidden_states  # All hidden states default to 1 (neutral)
+            all_actions = control_actions + hidden_actions
+
             discrete_actions = torch.tensor(
-                [[steering_discrete, throttle_discrete, 1, 1, 1, 1]],  # 1 = no change (0)
+                [all_actions],
                 device=env.unwrapped.device,  # type: ignore
                 dtype=torch.long
             )

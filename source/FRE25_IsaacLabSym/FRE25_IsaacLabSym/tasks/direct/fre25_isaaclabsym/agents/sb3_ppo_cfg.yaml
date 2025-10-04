@@ -1,6 +1,9 @@
 # Stable-Baselines3 PPO Configuration for FRE25 with DISCRETE Actions
-# Uses MultiDiscrete action space: 2 control actions + N hidden actions
-# Control actions (steering, wheels): each with 3 categories {-1, 0, 1}
+# Uses MultiDiscrete action space: 3 control actions + N hidden actions
+# Control actions:
+#   - steering: 3 categories {-1, 0, 1}
+#   - throttle: 3 categories {-1, 0, 1}
+#   - step_command: 2 categories {0, 1} - agent decides when to advance command buffer
 # Hidden actions: dummy actions that don't affect robot, used for policy memory
 # 
 # ALL past actions (control + hidden) are fed back as observations
@@ -22,9 +25,9 @@ policy_class: MlpPolicy  # MlpPolicy for MLP, MlpLstmPolicy for LSTM
 
 # Hidden states configuration
 # Hidden actions are "dummy" outputs that don't control the robot
-# The policy outputs: [steering, throttle, hidden1, hidden2, ...]
+# The policy outputs: [steering, throttle, step_command, hidden1, hidden2, ...]
 # ALL past actions are fed back as observations to provide memory
-# Example: num_hidden_states=2 → 4 total actions (2 control + 2 hidden)
+# Example: num_hidden_states=2 → 5 total actions (3 control + 2 hidden)
 num_hidden_states: 8  # Default: 8 hidden state dimensions (set to 0 to disable)
 
 # Training parameters (can be overridden by policy-specific configs)

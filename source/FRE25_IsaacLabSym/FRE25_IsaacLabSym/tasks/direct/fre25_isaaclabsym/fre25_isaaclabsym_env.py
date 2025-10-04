@@ -48,15 +48,27 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self, cfg: Fre25IsaaclabsymEnvCfg, render_mode: str | None = None, **kwargs
     ):
         # Action space includes control actions + hidden state actions
+        # Control actions: steering (3 cats), throttle (3 cats), step_command (2 cats)
         print(f"[ENV __init__] cfg.action_space = {cfg.action_space}")
         print(f"[ENV __init__] cfg.num_hidden_states = {getattr(cfg, 'num_hidden_states', 'NOT SET')}")
 
         cfg.nActions = cfg.action_space  # Total actions (base control + hidden states)
 
-        # Discrete action space: each action has 3 categories {-1, 0, 1}
-        cfg.action_space = MultiDiscrete([3] * cfg.nActions)  # type: ignore
+        # Discrete action space with mixed categories:
+        # - steering: 3 categories {-1, 0, 1}
+        # - throttle: 3 categories {-1, 0, 1}
+        # - step_command: 2 categories {0, 1}
+        # - hidden states: 3 categories {-1, 0, 1} each
+        num_hidden = getattr(cfg, 'num_hidden_states', 0)
+        action_categories = [3, 3, 2] + [3] * num_hidden  # steering, throttle, step_cmd, hidden...
+        cfg.action_space = MultiDiscrete(action_categories)  # type: ignore
 
-        print(f"[ENV __init__] Created MultiDiscrete with {cfg.nActions} actions: {cfg.action_space}")
+        print(f"[ENV __init__] Created MultiDiscrete with {cfg.nActions} actions:")
+        print(f"[ENV __init__]   - Steering: 3 categories {{-1, 0, 1}}")
+        print(f"[ENV __init__]   - Throttle: 3 categories {{-1, 0, 1}}")
+        print(f"[ENV __init__]   - Step Command: 2 categories {{0, 1}}")
+        if num_hidden > 0:
+            print(f"[ENV __init__]   - Hidden States: {num_hidden} × 3 categories {{-1, 0, 1}}")
 
         self.cfg = cfg
         super().__init__(cfg, render_mode, **kwargs)
@@ -157,11 +169,11 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Initialize buffer for ALL past actions (control + hidden states)
         # These will be fed back as observations to provide memory for the policy
         self.num_hidden_states = getattr(self.cfg, "num_hidden_states", 0)
-        self.num_control_actions = 2  # steering and throttle
+        self.num_control_actions = 3  # steering, throttle, step_command
         self.num_total_actions = self.num_control_actions + self.num_hidden_states
 
         print(f"[ENV] 🧠 Initializing buffer for {self.num_total_actions} past actions")
-        print(f"[ENV]    - {self.num_control_actions} control actions (steering, throttle)")
+        print(f"[ENV]    - {self.num_control_actions} control actions (steering, throttle, step_command)")
         print(f"[ENV]    - {self.num_hidden_states} hidden state actions (memory)")
 
         # Buffer stores ALL past actions to be fed back as observations
@@ -172,11 +184,6 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Initialize the robot pose
         self.robot_pose = self.scene.env_origins[:, :2].clone()
         self.past_robot_pose = self.scene.env_origins[:, :2].clone()
-
-        # Initialize past command actions
-        self.past_command_actions = torch.zeros(
-            self.num_envs, dtype=torch.bool, device=self.device
-        )
 
         # Initialize plant collision buffer
         self.plant_collision_buffer = torch.zeros(self.num_envs, device=self.device)
@@ -191,11 +198,24 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Update robot position and waypoint detection
         self.past_robot_pose = self.robot_pose
 
-        # Convert discrete action indices {0, 1, 2} to continuous values {-1, 0, +1}
-        # actions come as integer indices from the discrete policy
-        actions = (actions - 1).float()  # Maps: 0→-1, 1→0, 2→+1
+        # Convert discrete action indices to continuous values
+        # Action 0 (steering): {0, 1, 2} → {-1, 0, +1}
+        # Action 1 (throttle): {0, 1, 2} → {-1, 0, +1}
+        # Action 2 (step_command): {0, 1} → {0, 1} (keep as is, then convert to bool)
+        # Actions 3+ (hidden): {0, 1, 2} → {-1, 0, +1}
 
-        self.actions = actions.clone()
+        # Convert actions - handle step_command differently
+        converted_actions = actions.clone().float()
+        # Steering and throttle: subtract 1 to get {-1, 0, 1}
+        converted_actions[:, 0] = actions[:, 0] - 1  # steering
+        converted_actions[:, 1] = actions[:, 1] - 1  # throttle
+        # step_command stays as {0, 1}
+        converted_actions[:, 2] = actions[:, 2]
+        # Hidden states: subtract 1 to get {-1, 0, 1}
+        if self.num_hidden_states > 0:
+            converted_actions[:, 3:] = actions[:, 3:] - 1
+
+        self.actions = converted_actions
         self.waypoints.visualizeWaypoints()
         self.waypoints.updateCurrentMarker()
 
@@ -239,35 +259,32 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             wheel_actions, joint_ids=self.wheels_dof_idx
         )
 
-        # Update the command buffer when an even numbered waypoint is reached
-        command_step_actions = (
-            self.waypoints.getReward()
-            * (
-                self.waypoints.currentWaypointIndices[:, 1]
-                % self.waypoints.waypointsPerRow
-                == 0
-            )
-        ).float()
-        command_step_actions = torch.clamp(command_step_actions, 0, 1)
+        # Agent-controlled command buffer stepping via step_command action
+        # Extract step_command action (binary: 0 or 1)
+        step_command_action = self.actions[:, 2]
+        step_command = (step_command_action > 0.5).bool()  # Convert to boolean
 
-        # Draw a random number and compare to the action to decide whether to step the command buffer
-        randomNumber = torch.rand_like(command_step_actions)
-        advance_command = randomNumber < command_step_actions
-        if self.past_command_actions is None:
-            self.past_command_actions = advance_command
+        # Rising edge detection: step only when transitioning from 0 → 1
+        # Get previous step_command from past_actions buffer (index 2)
+        past_step_command = (self.past_actions[:, 2] > 0.5).bool()
+        rising_edge = step_command & (~past_step_command)
 
-        step = advance_command & (~self.past_command_actions)
-
-        self.commandBuffer.stepCommands(step)
-        self.past_command_actions = advance_command
+        # Step command buffer for environments with rising edge
+        if rising_edge.any():
+            env_ids_to_step = torch.where(rising_edge)[0]
+            self.commandBuffer.stepCommands(env_ids_to_step)
 
         # Store ALL actions (control + hidden) for next observation
-        # Only the first 2 actions (steering, throttle) actually control the robot
-        # The remaining actions are "hidden states" that don't affect the environment
-        # but are fed back to the policy for memory
-        all_actions = self.actions[:, :self.num_total_actions]
-        all_actions = torch.clamp(all_actions, -1, 1)
-        self.past_actions = all_actions.clone()
+        # Control actions: steering, throttle, step_command (now 3 actions)
+        # The step_command is stored as {0, 1} to match what the agent outputs
+        # Hidden states: remain as {-1, 0, 1}
+        all_actions = self.actions[:, :self.num_total_actions].clone()
+        # Normalize control actions to [-1, 1] range for consistency
+        all_actions[:, 0:2] = torch.clamp(all_actions[:, 0:2], -1, 1)  # steering, throttle
+        all_actions[:, 2] = torch.clamp(all_actions[:, 2], 0, 1)  # step_command (binary)
+        if self.num_hidden_states > 0:
+            all_actions[:, 3:] = torch.clamp(all_actions[:, 3:], -1, 1)  # hidden states
+        self.past_actions = all_actions
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
         # print("GET DONES")
@@ -299,7 +316,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         #######################
         #########################
         ########################
-        # completed_command_buffer = torch.zeros_like(completed_command_buffer)
+        completed_command_buffer = torch.zeros_like(completed_command_buffer)
         if DEBUG and any(completed_command_buffer):
             print("Task Completed: completed command buffer")
 
@@ -420,12 +437,12 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # 1. Current steering angle (1 dim)
         # 2. Lidar readings (40 dims)
         # 3. Current commands (3 dims)
-        # 4. ALL past actions: control (steering, throttle) + hidden states (N dims)
+        # 4. ALL past actions: control (steering, throttle, step_command) + hidden states (N dims)
         obs_components = [
             self.steering_buffer[:, [0]],  # The Current Steering Angle
             lidar,  # The Current Lidar Readings
             currentCommands,  # The Current Commands
-            self.past_actions,  # ALL past actions (control + hidden states)
+            self.past_actions,  # ALL past actions (3 control + N hidden states)
         ]
 
         obs = torch.cat(obs_components, dim=-1)
@@ -469,7 +486,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Reset waypoint reward buffer
         self.waypoints.resetRewardBuffer()
 
-        # Reset past actions buffer (all actions: control + hidden states)
+        # Reset past actions buffer (all actions: 3 control + hidden states)
         self.past_actions[env_ids] = 0.0
 
         # RESET BUFFERS
@@ -483,8 +500,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Reset past robot pose
         self.past_robot_pose[env_ids] = self.scene.env_origins[env_ids, :2]
 
-        # Reset past command actions
-        self.past_command_actions[env_ids] = 0
+        # Remove obsolete past_command_actions (no longer used)
 
         # Reset plant collision buffer
         self.plant_collision_buffer[env_ids] = 0

@@ -138,8 +138,8 @@ def main():
         env_cfg.observation_space = getattr(saved_env_cfg, "observation_space", env_cfg.observation_space)
         if num_hidden_states > 0:
             print(f"[INFO] 🧠 Using {num_hidden_states} hidden states (from saved config)")
-            print(f"[INFO]    Action space: {env_cfg.action_space} (2 control + {num_hidden_states} hidden)")
-            print(f"[INFO]    Observation space: {env_cfg.observation_space} (44 base + {2 + num_hidden_states} past actions)")
+            print(f"[INFO]    Action space: {env_cfg.action_space} (3 control + {num_hidden_states} hidden)")
+            print(f"[INFO]    Observation space: {env_cfg.observation_space} (44 base + {3 + num_hidden_states} past actions)")
     else:
         print(f"[WARN] ⚠️  No saved environment config found at: {saved_env_cfg_path}")
         print(f"[WARN]    Using default environment config (may mismatch with checkpoint)")
@@ -203,7 +203,7 @@ def main():
 
     # Prepare plotting for all actions if requested
     num_hidden_states = getattr(env_cfg, "num_hidden_states", 0)
-    num_total_actions = 2 + num_hidden_states  # steering, throttle + hidden states
+    num_total_actions = 3 + num_hidden_states  # steering, throttle, step_command + hidden states
 
     if args_cli.plotHiddenStates and num_total_actions > 0:
         import matplotlib.pyplot as plt
@@ -216,14 +216,18 @@ def main():
         lines = []
         data = [[] for _ in range(num_total_actions)]
 
-        # Action titles
-        action_titles = ["Steering Action", "Throttle Action"] + [f"Hidden State {i+1}" for i in range(num_hidden_states)]
+        # Action titles (updated for 3 control actions)
+        action_titles = ["Steering", "Throttle", "Step Command"] + [f"Hidden State {i+1}" for i in range(num_hidden_states)]
 
         for i in range(num_total_actions):
             line, = axs[i].plot([], [])
             lines.append(line)
             axs[i].set_xlim(0, args_cli.video_length)
-            axs[i].set_ylim(-1.5, 1.5)
+            # Step command is binary {0, 1}, others are {-1, 1}
+            if i == 2:  # step_command
+                axs[i].set_ylim(-0.2, 1.2)
+            else:
+                axs[i].set_ylim(-1.5, 1.5)
             axs[i].set_ylabel("Action Value")
             axs[i].set_title(action_titles[i])
             axs[i].grid(True, alpha=0.3)

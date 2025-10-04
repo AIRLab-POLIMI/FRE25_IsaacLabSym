@@ -34,9 +34,10 @@ class KeyboardManager(DeviceBase):
         ============================== ================= =================
         Description                    Key (+ve axis)    Key (-ve axis)
         ============================== ================= =================
-        Steering anti anti clockwise   A                 D
-        Throttle forward               W                 S
-        Toggle gripper (open/close)    Q
+        Steering left/right            A (left)          D (right)
+        Throttle forward/backward      W (forward)       S (backward)
+        Step Command Buffer            E (hold down)
+        Reset                          L
         ============================== ================= =================
 
     .. seealso::
@@ -88,11 +89,12 @@ class KeyboardManager(DeviceBase):
         msg = f"Keyboard Controller for FRE25: {self.__class__.__name__}\n"
         msg += f"\tKeyboard name: {self._input.get_keyboard_name(self._keyboard)}\n"
         msg += "\t----------------------------------------------\n"
-        msg += "\tSteering anti anti clockwise: A\n"
-        msg += "\tSteering anti anti clockwise: D\n"
+        msg += "\tSteering left: A\n"
+        msg += "\tSteering right: D\n"
         msg += "\tThrottle forward: W\n"
         msg += "\tThrottle backward: S\n"
-        msg += "\tStep Command Buffer: Q\n"
+        msg += "\tStep Command Buffer: E (hold down to set to 1)\n"
+        msg += "\tReset: L\n"
         msg += "\t----------------------------------------------\n"
         return msg
 
@@ -143,7 +145,7 @@ class KeyboardManager(DeviceBase):
         if event.type == carb.input.KeyboardEventType.KEY_PRESS:
             if event.input.name == "L":
                 self.reset()
-            if event.input.name == "Q":
+            if event.input.name == "E":
                 self._step_command_buffer = True
             elif event.input.name in ["W", "S", "A", "D"]:
                 self._kinematic_command_buffer += self._INPUT_KEY_MAPPING[
@@ -152,7 +154,7 @@ class KeyboardManager(DeviceBase):
 
         # remove the command when un-pressed
         if event.type == carb.input.KeyboardEventType.KEY_RELEASE:
-            if event.input.name == "Q":
+            if event.input.name == "E":
                 self._step_command_buffer = False
             if event.input.name in ["W", "S", "A", "D"]:
                 self._kinematic_command_buffer -= self._INPUT_KEY_MAPPING[
@@ -169,8 +171,8 @@ class KeyboardManager(DeviceBase):
     def _create_key_bindings(self):
         """Creates default key binding."""
         self._INPUT_KEY_MAPPING = {
-            # toggle: gripper command
-            "Q": True,
+            # step command buffer (hold down 'E')
+            "E": True,
             # x-axis (forward)
             "W": np.asarray([0.0, 1.0]) * self.throttleSensitivity,
             "S": np.asarray([0.0, -1.0]) * self.throttleSensitivity,
