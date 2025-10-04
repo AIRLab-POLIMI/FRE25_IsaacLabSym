@@ -200,6 +200,11 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Buffer to track command steps taken this timestep (for penalty)
         self.command_step_buffer = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
 
+        # Tracking for "average steps between command steps" metric
+        self.steps_since_last_command_step = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
+        self.episode_command_steps_taken = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
+        self.episode_total_steps_with_commands = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
+
         # LSTM policy handles temporal information - no manual hidden state needed
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
@@ -288,6 +293,17 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             # Mark that these environments took a command step
             self.command_step_buffer[env_ids_to_step] = True
 
+            # Track steps between command steps for metric logging
+            # Add the accumulated steps to the total
+            self.episode_total_steps_with_commands[env_ids_to_step] += self.steps_since_last_command_step[env_ids_to_step]
+            # Increment count of command steps taken
+            self.episode_command_steps_taken[env_ids_to_step] += 1
+            # Reset the step counter for these environments
+            self.steps_since_last_command_step[env_ids_to_step] = 0
+
+        # Increment step counter for all environments (tracks steps since last command step)
+        self.steps_since_last_command_step += 1
+
         # Store ALL actions (control + hidden) for next observation
         # Control actions: steering, throttle, step_command (now 3 actions)
         # The step_command is stored as {0, 1} to match what the agent outputs
@@ -361,6 +377,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
                 "plant_collisions_sum": float(self.episode_plant_collisions[reset_mask].float().sum()),
                 "out_of_bounds_sum": float(self.episode_out_of_bounds[reset_mask].float().sum()),
                 "timeouts_sum": float(self.episode_timeouts[reset_mask].float().sum()),
+                "command_steps_sum": float(self.episode_command_steps_taken[reset_mask].float().sum()),
+                "steps_between_commands_sum": float(self.episode_total_steps_with_commands[reset_mask].float().sum()),
             }
         else:
             # No environments resetting this step
@@ -570,6 +588,11 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Reset command step buffer
         self.command_step_buffer[env_ids] = False
+
+        # Reset command step tracking buffers
+        self.steps_since_last_command_step[env_ids] = 0
+        self.episode_command_steps_taken[env_ids] = 0
+        self.episode_total_steps_with_commands[env_ids] = 0
 
         # Reset past lidar
         self.pastLidar[env_ids] = 0.0

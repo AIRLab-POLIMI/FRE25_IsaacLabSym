@@ -41,6 +41,8 @@ class EnhancedLoggingCallback(BaseCallback):
             collisions_sum = 0.0
             oob_sum = 0.0
             timeouts_sum = 0.0
+            command_steps_sum = 0.0
+            steps_between_commands_sum = 0.0
 
             waypointsAverge = []
 
@@ -52,6 +54,8 @@ class EnhancedLoggingCallback(BaseCallback):
                     collisions_sum += ep_info.get('plant_collisions_sum', 0.0)
                     oob_sum += ep_info.get('out_of_bounds_sum', 0.0)
                     timeouts_sum += ep_info.get('timeouts_sum', 0.0)
+                    command_steps_sum += ep_info.get('command_steps_sum', 0.0)
+                    steps_between_commands_sum += ep_info.get('steps_between_commands_sum', 0.0)
                     waypointsAverge.append(ep_info.get('waypoints_reached_sum', 0.0) / ep_info['episode_count'] if ep_info['episode_count'] > 0 else 0.0)
 
             # Debug: print what we extracted
@@ -62,6 +66,11 @@ class EnhancedLoggingCallback(BaseCallback):
                 print(f"  Collisions sum: {collisions_sum:.1f}, mean: {collisions_sum/total_episodes:.2f}")
                 print(f"  Out of bounds sum: {oob_sum:.1f}, mean: {oob_sum/total_episodes:.2f}")
                 print(f"  Timeouts sum: {timeouts_sum:.1f}, mean: {timeouts_sum/total_episodes:.2f}")
+                if command_steps_sum > 0:
+                    avg_steps = steps_between_commands_sum / command_steps_sum
+                    print(f"  Command steps sum: {command_steps_sum:.1f}, avg steps between: {avg_steps:.2f}")
+                else:
+                    print(f"  Command steps sum: 0 (agent never stepped, would log episode length: {np.mean(lengths):.2f})")
 
             if len(rewards) > 0:
                 # Log standard statistics
@@ -93,6 +102,15 @@ class EnhancedLoggingCallback(BaseCallback):
 
                     self.logger.record("episode/rate_timeouts", timeouts_mean)
                     # self.logger.record("episode/timeouts_total", timeouts_sum)
+
+                    # Log average steps between command steps
+                    if command_steps_sum > 0:
+                        avg_steps_between_commands = steps_between_commands_sum / command_steps_sum
+                        self.logger.record("episode/avg_steps_between_commands", avg_steps_between_commands)
+                    else:
+                        # No command steps taken - the gap is the entire episode length
+                        # This makes sense: if agent never stepped, "time between steps" = episode duration
+                        self.logger.record("episode/avg_steps_between_commands", np.mean(lengths))
 
                     # Also log rates (as percentages of total episodes)
                     # self.logger.record("episode/collision_rate", (collisions_sum / total_episodes) * 100)
