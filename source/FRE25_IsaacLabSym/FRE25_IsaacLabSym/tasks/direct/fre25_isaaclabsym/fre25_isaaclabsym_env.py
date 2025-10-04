@@ -197,6 +197,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.episode_out_of_bounds = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
         self.episode_timeouts = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
 
+        # Buffer to track command steps taken this timestep (for penalty)
+        self.command_step_buffer = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
+
         # LSTM policy handles temporal information - no manual hidden state needed
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
@@ -276,9 +279,14 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         rising_edge = step_command & (~past_step_command)
 
         # Step command buffer for environments with rising edge
+        # Note: Don't reset the buffer here because _apply_action is called multiple times
+        # due to decimation (4 times). The buffer will be reset in _get_rewards() after
+        # the reward is computed.
         if rising_edge.any():
             env_ids_to_step = torch.where(rising_edge)[0]
             self.commandBuffer.stepCommands(env_ids_to_step)
+            # Mark that these environments took a command step
+            self.command_step_buffer[env_ids_to_step] = True
 
         # Store ALL actions (control + hidden) for next observation
         # Control actions: steering, throttle, step_command (now 3 actions)
@@ -428,6 +436,16 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
         outOfBoundsPenalty = out_of_bounds.float() * 0  # -50
 
+        # Penalty for performing a command step
+        # This encourages the agent to be selective about when to advance the command buffer
+        commandStepPenalty = self.command_step_buffer.float() * -0.5
+
+        # Reset command step buffer after computing the reward
+        # This is done here (not in _apply_action) because _apply_action is called
+        # multiple times per step due to decimation (4 times), but _get_rewards is
+        # called once per step, so the penalty is applied correctly.
+        self.command_step_buffer[:] = False
+
         # Note: No action bound violation penalty for discrete actions
 
         totalReward = (
@@ -437,6 +455,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             + timeOutPenalty
             + plantCollisionPenalty
             + outOfBoundsPenalty
+            + commandStepPenalty
         )
         # print(f"totalReward: {totalReward}")
 
@@ -548,6 +567,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Reset out of bound buffer
         self.out_of_bound_buffer[env_ids] = 0
+
+        # Reset command step buffer
+        self.command_step_buffer[env_ids] = False
 
         # Reset past lidar
         self.pastLidar[env_ids] = 0.0
