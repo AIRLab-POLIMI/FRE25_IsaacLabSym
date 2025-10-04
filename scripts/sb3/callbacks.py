@@ -85,19 +85,19 @@ class EnhancedLoggingCallback(BaseCallback):
                     self.logger.record("episode/waypoints_reached_mean", waypoints_mean)
                     self.logger.record("episode/waypoints_reached_std", waypoints_std)
 
-                    self.logger.record("episode/plant_collisions_mean", collisions_mean)
-                    self.logger.record("episode/plant_collisions_total", collisions_sum)
+                    self.logger.record("episode/rate_plant_collisions", collisions_mean)
+                    # self.logger.record("episode/plant_collisions_total", collisions_sum)
 
-                    self.logger.record("episode/out_of_bounds_mean", oob_mean)
-                    self.logger.record("episode/out_of_bounds_total", oob_sum)
+                    self.logger.record("episode/rate_out_of_bounds", oob_mean)
+                    # self.logger.record("episode/out_of_bounds_total", oob_sum)
 
-                    self.logger.record("episode/timeouts_mean", timeouts_mean)
-                    self.logger.record("episode/timeouts_total", timeouts_sum)
+                    self.logger.record("episode/rate_timeouts", timeouts_mean)
+                    # self.logger.record("episode/timeouts_total", timeouts_sum)
 
                     # Also log rates (as percentages of total episodes)
-                    self.logger.record("episode/collision_rate", (collisions_sum / total_episodes) * 100)
-                    self.logger.record("episode/oob_rate", (oob_sum / total_episodes) * 100)
-                    self.logger.record("episode/timeout_rate", (timeouts_sum / total_episodes) * 100)
+                    # self.logger.record("episode/collision_rate", (collisions_sum / total_episodes) * 100)
+                    # self.logger.record("episode/oob_rate", (oob_sum / total_episodes) * 100)
+                    # self.logger.record("episode/timeout_rate", (timeouts_sum / total_episodes) * 100)
 
         return True
 
