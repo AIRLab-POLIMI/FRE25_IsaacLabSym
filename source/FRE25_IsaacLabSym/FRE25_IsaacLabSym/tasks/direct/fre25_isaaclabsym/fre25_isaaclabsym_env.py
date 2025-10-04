@@ -191,6 +191,12 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Initialize out of bound buffer
         self.out_of_bound_buffer = torch.zeros(self.num_envs, device=self.device)
 
+        # Episode statistics tracking (for TensorBoard logging)
+        self.episode_waypoints_reached = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
+        self.episode_plant_collisions = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
+        self.episode_out_of_bounds = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
+        self.episode_timeouts = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
+
         # LSTM policy handles temporal information - no manual hidden state needed
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
@@ -291,6 +297,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         DEBUG = False
         # The episode has reached the maximum length
         time_out = self.episode_length_buf >= self.max_episode_length - 1
+        # Track timeout occurrences
+        self.episode_timeouts += time_out.long()
         if DEBUG and any(time_out):
             print(f"Episode length reached: {self.max_episode_length} steps")
 
@@ -302,12 +310,16 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # The robot is too far from the current waypoint
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
         self.out_of_bound_buffer = out_of_bounds
+        # Track out of bounds occurrences
+        self.episode_out_of_bounds += out_of_bounds.long()
         if DEBUG and any(out_of_bounds):
             print("Episode terminated: robot out of bounds")
 
         # Check for plant collisions
         plant_collisions = self.plants.detectPlantCollision()
         self.plant_collision_buffer = plant_collisions
+        # Track plant collision occurrences
+        self.episode_plant_collisions += plant_collisions.long()
         if DEBUG and any(plant_collisions):
             print("Episode terminated: robot collided with a plant")
 
@@ -323,6 +335,33 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         taskCompleted = reached_all_waypoints | time_out | completed_command_buffer
         taskFailed = out_of_bounds | plant_collisions
 
+        # Determine which environments are resetting (completing or failing)
+        dones = taskCompleted | taskFailed
+
+        # Log episode statistics to extras for TensorBoard
+        # Store per-environment values so SB3 wrapper can index them
+        # These will be added to infos[idx] for ALL environments, but only
+        # the resetting ones will be collected into ep_info_buffer
+        self.extras["waypoints_reached_per_env"] = self.episode_waypoints_reached
+        self.extras["plant_collisions_per_env"] = self.episode_plant_collisions
+        self.extras["out_of_bounds_per_env"] = self.episode_out_of_bounds
+        self.extras["timeouts_per_env"] = self.episode_timeouts
+
+        # Also provide aggregated statistics in extras["log"] for resetting environments
+        # This is added to infos[idx]["episode"] for better integration with SB3
+        if dones.any():
+            # Compute statistics only for environments that are resetting
+            reset_mask = dones
+            self.extras["log"] = {
+                "waypoints_reached": float(self.episode_waypoints_reached[reset_mask].float().mean()),
+                "plant_collisions": float(self.episode_plant_collisions[reset_mask].float().mean()),
+                "out_of_bounds": float(self.episode_out_of_bounds[reset_mask].float().mean()),
+                "timeouts": float(self.episode_timeouts[reset_mask].float().mean()),
+            }
+        else:
+            # No environments resetting this step
+            self.extras["log"] = {}
+
         return taskFailed, taskCompleted
 
     def _get_rewards(self) -> torch.Tensor:
@@ -332,10 +371,16 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Reward for staying alive
         # stayAliveReward = (1.0 - self.reset_terminated.float()) / 100000  # (n_envs)
 
+        waypoints_reached_this_step = self.waypoints.getReward().float()
+
         # Reward for reaching waypoints
         waypointReward = (
-            self.waypoints.getReward().float() * 10 / self.waypoints.waypointsPerRow
+            waypoints_reached_this_step * 10 / self.waypoints.waypointsPerRow
         )  # (n_envs,)
+
+        # Track waypoints reached for episode statistics
+        self.episode_waypoints_reached += waypoints_reached_this_step.long()
+
         self.waypoints.resetRewardBuffer()
 
         # Reward for moving towards the waypoint computed as the dot product between the robot velocity and the normalized vector from the robot to the waypoint
@@ -513,3 +558,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Reset actions to 0.0 (which corresponds to discrete index 1 after conversion)
         self.actions[env_ids] = 0.0
+
+        # Reset episode statistics
+        self.episode_waypoints_reached[env_ids] = 0
+        self.episode_plant_collisions[env_ids] = 0
+        self.episode_out_of_bounds[env_ids] = 0
+        self.episode_timeouts[env_ids] = 0

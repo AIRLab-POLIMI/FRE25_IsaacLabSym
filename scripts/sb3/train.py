@@ -212,7 +212,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # callbacks for agent
     checkpoint_callback = CheckpointCallback(save_freq=1000, save_path=log_dir, name_prefix="model", verbose=2)
     enhanced_logging = EnhancedLoggingCallback(verbose=1)
-    progress_callback = ProgressCallback(check_freq=10000, verbose=1)
+    progress_callback = ProgressCallback(check_freq=1000, verbose=1)
 
     # Combine all callbacks
     callback_list = CallbackList([checkpoint_callback, enhanced_logging, progress_callback])
