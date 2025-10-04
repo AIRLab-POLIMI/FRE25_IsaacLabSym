@@ -78,41 +78,21 @@ class EnhancedLoggingCallback(BaseCallback):
                     self.logger.record("episode/waypoints_reached_max", np.max(waypoints_reached))
                     self.logger.record("episode/waypoints_reached_min", np.min(waypoints_reached))
                     self.logger.record("episode/waypoints_reached_std", np.std(waypoints_reached))
-                    # Sum tells us total waypoints across recent episode completions
-                    self.logger.record("episode/waypoints_reached_sum", np.sum(waypoints_reached))
 
                 if len(plant_collisions) > 0:
                     self.logger.record("episode/plant_collisions_mean", np.mean(plant_collisions))
-                    self.logger.record("episode/plant_collisions_max", np.max(plant_collisions))
                     # Sum of means tells us aggregate collision rate
                     self.logger.record("episode/plant_collisions_sum", np.sum(plant_collisions))
 
                 if len(out_of_bounds) > 0:
                     self.logger.record("episode/out_of_bounds_mean", np.mean(out_of_bounds))
-                    self.logger.record("episode/out_of_bounds_max", np.max(out_of_bounds))
                     # Sum of means tells us aggregate out-of-bounds rate
                     self.logger.record("episode/out_of_bounds_sum", np.sum(out_of_bounds))
 
                 if len(timeouts) > 0:
                     self.logger.record("episode/timeouts_mean", np.mean(timeouts))
-                    self.logger.record("episode/timeouts_max", np.max(timeouts))
                     # Sum tells us how many episodes timed out
                     self.logger.record("episode/timeouts_sum", np.sum(timeouts))
-                    # Timeout rate: fraction of episodes that timed out
-                    timeout_rate = np.mean([1.0 if t > 0.5 else 0.0 for t in timeouts])
-                    self.logger.record("episode/timeout_rate", timeout_rate)
-
-                # Track all-time max reward
-                if not hasattr(self, 'max_reward_ever'):
-                    self.max_reward_ever = -np.inf
-
-                current_max = np.max(rewards)
-                if current_max > self.max_reward_ever:
-                    self.max_reward_ever = current_max
-                    if self.verbose > 0:
-                        print(f"New max reward: {self.max_reward_ever:.2f}")
-
-                self.logger.record("rollout/max_reward_ever", self.max_reward_ever)
 
         return True
 
