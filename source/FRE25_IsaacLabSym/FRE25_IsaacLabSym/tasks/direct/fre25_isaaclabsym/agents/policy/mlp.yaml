@@ -33,5 +33,6 @@ policy_kwargs:
   net_arch:
     - 512
     - 256
+    - 256
     - 128
   ortho_init: true
