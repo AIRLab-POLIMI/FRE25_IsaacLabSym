@@ -84,29 +84,31 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     algorithm_name = agent_cfg.pop("algorithm", "PPO")
     policy_class = agent_cfg.pop("policy_class", "MlpPolicy")
 
-    # Extract hidden accumulator configuration (for MLP with manual memory)
-    num_hidden_accumulators = agent_cfg.pop("num_hidden_accumulators", 0)
+    # Extract hidden states configuration (for MLP with policy memory)
+    num_hidden_states = agent_cfg.pop("num_hidden_states", 0)
 
     print(f"[DEBUG] Policy type: {policy_type}")
     print(f"[DEBUG] Algorithm: {algorithm_name}")
-    print(f"[DEBUG] num_hidden_accumulators: {num_hidden_accumulators}")
+    print(f"[DEBUG] num_hidden_states: {num_hidden_states}")
 
     # Remove Hydra-specific keys that shouldn't be passed to the algorithm
     agent_cfg.pop("defaults", None)  # Hydra composition metadata
 
-    # Configure environment for hidden accumulators if requested
-    if num_hidden_accumulators > 0 and policy_type == "mlp":
-        print(f"[INFO] 🔧 Enabling {num_hidden_accumulators} hidden accumulators for MLP")
-        env_cfg.num_hidden_accumulators = num_hidden_accumulators
+    # Configure environment for hidden states if requested
+    if num_hidden_states > 0 and policy_type == "mlp":
+        print(f"[INFO] 🔧 Enabling {num_hidden_states} hidden states for MLP")
+        env_cfg.num_hidden_states = num_hidden_states
         # Update action and observation spaces
-        env_cfg.action_space = 2 + num_hidden_accumulators  # steering, wheels, + accumulators
-        env_cfg.observation_space = 44 + num_hidden_accumulators  # base obs + accumulators
-        print(f"[INFO]    Action space: {env_cfg.action_space} (2 control + {num_hidden_accumulators} accumulators)")
-        print(f"[INFO]    Observation space: {env_cfg.observation_space} (44 base + {num_hidden_accumulators} accumulators)")
-    elif num_hidden_accumulators > 0 and policy_type == "lstm":
-        print(f"[WARN] ⚠️  Hidden accumulators ignored for LSTM policy (LSTM has built-in memory)")
-        num_hidden_accumulators = 0
-        env_cfg.num_hidden_accumulators = 0
+        # Actions: 2 control (steering, throttle) + N hidden states
+        env_cfg.action_space = 2 + num_hidden_states
+        # Observations: 44 base + (2 + N) past actions (ALL actions fed back)
+        env_cfg.observation_space = 44 + (2 + num_hidden_states)
+        print(f"[INFO]    Action space: {env_cfg.action_space} (2 control + {num_hidden_states} hidden states)")
+        print(f"[INFO]    Observation space: {env_cfg.observation_space} (44 base + {2 + num_hidden_states} past actions)")
+    elif num_hidden_states > 0 and policy_type == "lstm":
+        print(f"[WARN] ⚠️  Hidden states ignored for LSTM policy (LSTM has built-in memory)")
+        num_hidden_states = 0
+        env_cfg.num_hidden_states = 0
 
     # Select algorithm class based on Hydra config
     if algorithm_name == "RecurrentPPO":
@@ -116,7 +118,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     elif algorithm_name == "PPO":
         from stable_baselines3 import PPO
         algorithm_class = PPO
-        memory_info = f" + {num_hidden_accumulators} accumulators" if num_hidden_accumulators > 0 else " (no memory)"
+        memory_info = f" + {num_hidden_states} hidden states" if num_hidden_states > 0 else " (no memory)"
         print(f"[INFO] ✅ Using standard PPO with {policy_class} (feedforward MLP{memory_info})")
     else:
         raise ValueError(f"Unknown algorithm: {algorithm_name}. Use 'PPO' or 'RecurrentPPO'")

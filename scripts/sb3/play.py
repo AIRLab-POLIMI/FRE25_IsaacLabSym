@@ -28,7 +28,7 @@ parser.add_argument(
 )
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
 
-parser.add_argument("--plotHiddenAccumulators", action="store_true", default=False, help="Plot hidden accumulators values.")
+parser.add_argument("--plotHiddenStates", action="store_true", default=False, help="Plot hidden state action values.")
 
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -130,13 +130,16 @@ def main():
         with open(saved_env_cfg_path, "rb") as f:
             saved_env_cfg = pickle.load(f)
         # Update critical settings that affect action/observation spaces
-        env_cfg.num_hidden_accumulators = getattr(saved_env_cfg, "num_hidden_accumulators", 0)
+        # Try new terminology first, fall back to old for backward compatibility
+        num_hidden_states = getattr(saved_env_cfg, "num_hidden_states",
+                                    getattr(saved_env_cfg, "num_hidden_accumulators", 0))
+        env_cfg.num_hidden_states = num_hidden_states
         env_cfg.action_space = getattr(saved_env_cfg, "action_space", env_cfg.action_space)
         env_cfg.observation_space = getattr(saved_env_cfg, "observation_space", env_cfg.observation_space)
-        if env_cfg.num_hidden_accumulators > 0:
-            print(f"[INFO] 🧠 Using {env_cfg.num_hidden_accumulators} hidden accumulators (from saved config)")
-            print(f"[INFO]    Action space: {env_cfg.action_space}")
-            print(f"[INFO]    Observation space: {env_cfg.observation_space}")
+        if num_hidden_states > 0:
+            print(f"[INFO] 🧠 Using {num_hidden_states} hidden states (from saved config)")
+            print(f"[INFO]    Action space: {env_cfg.action_space} (2 control + {num_hidden_states} hidden)")
+            print(f"[INFO]    Observation space: {env_cfg.observation_space} (44 base + {2 + num_hidden_states} past actions)")
     else:
         print(f"[WARN] ⚠️  No saved environment config found at: {saved_env_cfg_path}")
         print(f"[WARN]    Using default environment config (may mismatch with checkpoint)")
@@ -198,22 +201,33 @@ def main():
 
     dt = env.unwrapped.step_dt
 
-    if args_cli.plotHiddenAccumulators and env_cfg.num_hidden_accumulators > 0:
+    # Prepare plotting for all actions if requested
+    num_hidden_states = getattr(env_cfg, "num_hidden_states", 0)
+    num_total_actions = 2 + num_hidden_states  # steering, throttle + hidden states
+
+    if args_cli.plotHiddenStates and num_total_actions > 0:
         import matplotlib.pyplot as plt
 
-        # Prepare for plotting hidden accumulators
+        # Prepare for plotting ALL actions (control + hidden states)
         plt.ion()
-        fig, axs = plt.subplots(env_cfg.num_hidden_accumulators, 1, figsize=(6, 2 * env_cfg.num_hidden_accumulators))
-        if env_cfg.num_hidden_accumulators == 1:
+        fig, axs = plt.subplots(num_total_actions, 1, figsize=(8, 2 * num_total_actions))
+        if num_total_actions == 1:
             axs = [axs]
         lines = []
-        data = [[] for _ in range(env_cfg.num_hidden_accumulators)]
-        for i in range(env_cfg.num_hidden_accumulators):
+        data = [[] for _ in range(num_total_actions)]
+
+        # Action titles
+        action_titles = ["Steering Action", "Throttle Action"] + [f"Hidden State {i+1}" for i in range(num_hidden_states)]
+
+        for i in range(num_total_actions):
             line, = axs[i].plot([], [])
             lines.append(line)
             axs[i].set_xlim(0, args_cli.video_length)
             axs[i].set_ylim(-1.5, 1.5)
-            axs[i].set_title(f"Hidden Accumulator {i+1}")
+            axs[i].set_ylabel("Action Value")
+            axs[i].set_title(action_titles[i])
+            axs[i].grid(True, alpha=0.3)
+        axs[-1].set_xlabel("Timestep")
         plt.tight_layout()
 
     # reset environment
@@ -230,19 +244,26 @@ def main():
             # env stepping
             obs, _, _, _ = env.step(actions)
 
-        if args_cli.plotHiddenAccumulators and env_cfg.num_hidden_accumulators > 0:
-            # Extract hidden accumulators from observation
+        if args_cli.plotHiddenStates and num_total_actions > 0:
+            # Extract ALL past actions from observation
+            # Observations structure: [steering(1), lidar(40), commands(3), past_actions(2+N)]
+            # Past actions are the last (2 + num_hidden_states) elements
             if isinstance(obs, (list, tuple)):
                 obs_array = obs[0]  # For VecEnvWrapper, obs is a list with one element
             else:
                 obs_array = obs
-            hidden_accumulators = obs_array[0, -env_cfg.num_hidden_accumulators :]  # Assuming last N obs are accumulators
-            for i in range(env_cfg.num_hidden_accumulators):
-                data[i].append(hidden_accumulators[i])
+
+            # Extract past actions (last num_total_actions observations)
+            past_actions = obs_array[0, -num_total_actions:]
+
+            # Update plot data for each action
+            for i in range(num_total_actions):
+                data[i].append(past_actions[i])
                 lines[i].set_data(range(len(data[i])), data[i])
                 axs[i].set_xlim(0, max(10, len(data[i])))
             plt.pause(0.001)
             plt.draw()
+
         if args_cli.video:
             timestep += 1
             # Exit the play loop after recording one video
