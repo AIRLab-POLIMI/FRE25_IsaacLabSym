@@ -339,24 +339,20 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         dones = taskCompleted | taskFailed
 
         # Log episode statistics to extras for TensorBoard
-        # Store per-environment values so SB3 wrapper can index them
-        # These will be added to infos[idx] for ALL environments, but only
-        # the resetting ones will be collected into ep_info_buffer
-        self.extras["waypoints_reached_per_env"] = self.episode_waypoints_reached
-        self.extras["plant_collisions_per_env"] = self.episode_plant_collisions
-        self.extras["out_of_bounds_per_env"] = self.episode_out_of_bounds
-        self.extras["timeouts_per_env"] = self.episode_timeouts
-
-        # Also provide aggregated statistics in extras["log"] for resetting environments
-        # This is added to infos[idx]["episode"] for better integration with SB3
+        # Store ONLY sum and count for resetting environments (no detailed values for efficiency)
+        # The callback will use these to compute proper per-episode statistics
         if dones.any():
-            # Compute statistics only for environments that are resetting
             reset_mask = dones
+            num_resets = reset_mask.sum().item()
+
+            # Store sum and count (count is shared across all metrics)
+            # No detailed per-episode value lists - too expensive for large batch sizes
             self.extras["log"] = {
-                "waypoints_reached": float(self.episode_waypoints_reached[reset_mask].float().mean()),
-                "plant_collisions": float(self.episode_plant_collisions[reset_mask].float().mean()),
-                "out_of_bounds": float(self.episode_out_of_bounds[reset_mask].float().mean()),
-                "timeouts": float(self.episode_timeouts[reset_mask].float().mean()),
+                "episode_count": float(num_resets),
+                "waypoints_reached_sum": float(self.episode_waypoints_reached[reset_mask].float().sum()),
+                "plant_collisions_sum": float(self.episode_plant_collisions[reset_mask].float().sum()),
+                "out_of_bounds_sum": float(self.episode_out_of_bounds[reset_mask].float().sum()),
+                "timeouts_sum": float(self.episode_timeouts[reset_mask].float().sum()),
             }
         else:
             # No environments resetting this step

@@ -33,34 +33,35 @@ class EnhancedLoggingCallback(BaseCallback):
                 print(f"\n[DEBUG] Episode info keys: {list(sample_ep.keys())}")
                 print(f"[DEBUG] Episode info sample: {sample_ep}")
 
-            # Extract custom episode statistics if available
-            waypoints_reached = []
-            plant_collisions = []
-            out_of_bounds = []
-            timeouts = []
+            # Extract custom episode statistics from aggregate sums and counts
+            # Environment now provides only sum and count (efficient, no per-episode lists)
+            # We compute accurate means from these aggregates
+            total_episodes = 0
+            waypoints_sum = 0.0
+            collisions_sum = 0.0
+            oob_sum = 0.0
+            timeouts_sum = 0.0
+
+            waypointsAverge = []
 
             for ep_info in self.model.ep_info_buffer:
-                # Extract from extras["log"] - these are already computed as means for resetting envs
-                if 'waypoints_reached' in ep_info:
-                    val = ep_info['waypoints_reached']
-                    waypoints_reached.append(float(val) if hasattr(val, 'item') else val)
-                if 'plant_collisions' in ep_info:
-                    val = ep_info['plant_collisions']
-                    plant_collisions.append(float(val) if hasattr(val, 'item') else val)
-                if 'out_of_bounds' in ep_info:
-                    val = ep_info['out_of_bounds']
-                    out_of_bounds.append(float(val) if hasattr(val, 'item') else val)
-                if 'timeouts' in ep_info:
-                    val = ep_info['timeouts']
-                    timeouts.append(float(val) if hasattr(val, 'item') else val)
+                # Extract aggregate sums and count from each buffer entry
+                if 'episode_count' in ep_info:
+                    total_episodes += ep_info['episode_count']
+                    waypoints_sum += ep_info.get('waypoints_reached_sum', 0.0)
+                    collisions_sum += ep_info.get('plant_collisions_sum', 0.0)
+                    oob_sum += ep_info.get('out_of_bounds_sum', 0.0)
+                    timeouts_sum += ep_info.get('timeouts_sum', 0.0)
+                    waypointsAverge.append(ep_info.get('waypoints_reached_sum', 0.0) / ep_info['episode_count'] if ep_info['episode_count'] > 0 else 0.0)
 
             # Debug: print what we extracted
-            if self.verbose > 0 and self.n_calls % 1000 == 0 and len(waypoints_reached) > 0:
-                print(f"\n[DEBUG] Extracted {len(waypoints_reached)} episode stats")
-                print(f"  Waypoints: {waypoints_reached[:5]}...")
-                print(f"  Collisions: {plant_collisions[:5]}...")
-                print(f"  Out of bounds: {out_of_bounds[:5]}...")
-                print(f"  Timeouts: {timeouts[:5]}...")
+            if self.verbose > 0 and self.n_calls % 1000 == 0 and total_episodes > 0:
+                print(f"\n[DEBUG] Extracted stats from {total_episodes} episodes")
+                print(f"  Total episodes in buffer: {len(self.model.ep_info_buffer)}")
+                print(f"  Waypoints sum: {waypoints_sum:.1f}, mean: {waypoints_sum/total_episodes:.2f}")
+                print(f"  Collisions sum: {collisions_sum:.1f}, mean: {collisions_sum/total_episodes:.2f}")
+                print(f"  Out of bounds sum: {oob_sum:.1f}, mean: {oob_sum/total_episodes:.2f}")
+                print(f"  Timeouts sum: {timeouts_sum:.1f}, mean: {timeouts_sum/total_episodes:.2f}")
 
             if len(rewards) > 0:
                 # Log standard statistics
@@ -70,29 +71,33 @@ class EnhancedLoggingCallback(BaseCallback):
                 self.logger.record("rollout/ep_len_mean", np.mean(lengths))
                 self.logger.record("rollout/ep_len_std", np.std(lengths))
 
-                # Log custom episode statistics
-                # Note: These are means computed across environments that reset in each episode
-                # So waypoints_reached_mean is the mean of means (average waypoints per episode batch)
-                if len(waypoints_reached) > 0:
-                    self.logger.record("episode/waypoints_reached_mean", np.mean(waypoints_reached))
-                    self.logger.record("episode/waypoints_reached_max", np.max(waypoints_reached))
-                    self.logger.record("episode/waypoints_reached_min", np.min(waypoints_reached))
-                    self.logger.record("episode/waypoints_reached_std", np.std(waypoints_reached))
+                # Log custom episode statistics from aggregate sums
+                # These are accurate per-episode means and rates computed from aggregate data
+                if total_episodes > 0:
+                    waypoints_mean = waypoints_sum / total_episodes
+                    collisions_mean = collisions_sum / total_episodes
+                    oob_mean = oob_sum / total_episodes
+                    timeouts_mean = timeouts_sum / total_episodes
+                    waypoints_std = np.std(waypointsAverge) if waypointsAverge else 0.0
+                    waypopints_max = np.max(waypointsAverge) if waypointsAverge else 0.0
 
-                if len(plant_collisions) > 0:
-                    self.logger.record("episode/plant_collisions_mean", np.mean(plant_collisions))
-                    # Sum of means tells us aggregate collision rate
-                    self.logger.record("episode/plant_collisions_sum", np.sum(plant_collisions))
+                    self.logger.record("episode/waypoints_reached_max", waypopints_max)
+                    self.logger.record("episode/waypoints_reached_mean", waypoints_mean)
+                    self.logger.record("episode/waypoints_reached_std", waypoints_std)
 
-                if len(out_of_bounds) > 0:
-                    self.logger.record("episode/out_of_bounds_mean", np.mean(out_of_bounds))
-                    # Sum of means tells us aggregate out-of-bounds rate
-                    self.logger.record("episode/out_of_bounds_sum", np.sum(out_of_bounds))
+                    self.logger.record("episode/plant_collisions_mean", collisions_mean)
+                    self.logger.record("episode/plant_collisions_total", collisions_sum)
 
-                if len(timeouts) > 0:
-                    self.logger.record("episode/timeouts_mean", np.mean(timeouts))
-                    # Sum tells us how many episodes timed out
-                    self.logger.record("episode/timeouts_sum", np.sum(timeouts))
+                    self.logger.record("episode/out_of_bounds_mean", oob_mean)
+                    self.logger.record("episode/out_of_bounds_total", oob_sum)
+
+                    self.logger.record("episode/timeouts_mean", timeouts_mean)
+                    self.logger.record("episode/timeouts_total", timeouts_sum)
+
+                    # Also log rates (as percentages of total episodes)
+                    self.logger.record("episode/collision_rate", (collisions_sum / total_episodes) * 100)
+                    self.logger.record("episode/oob_rate", (oob_sum / total_episodes) * 100)
+                    self.logger.record("episode/timeout_rate", (timeouts_sum / total_episodes) * 100)
 
         return True
 
