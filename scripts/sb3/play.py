@@ -27,6 +27,9 @@ parser.add_argument(
     help="When no checkpoint provided, use the last saved model. Otherwise use the best saved model.",
 )
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
+
+parser.add_argument("--plotHiddenAccumulators", action="store_true", default=False, help="Plot hidden accumulators values.")
+
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
@@ -195,6 +198,24 @@ def main():
 
     dt = env.unwrapped.step_dt
 
+    if args_cli.plotHiddenAccumulators and env_cfg.num_hidden_accumulators > 0:
+        import matplotlib.pyplot as plt
+
+        # Prepare for plotting hidden accumulators
+        plt.ion()
+        fig, axs = plt.subplots(env_cfg.num_hidden_accumulators, 1, figsize=(6, 2 * env_cfg.num_hidden_accumulators))
+        if env_cfg.num_hidden_accumulators == 1:
+            axs = [axs]
+        lines = []
+        data = [[] for _ in range(env_cfg.num_hidden_accumulators)]
+        for i in range(env_cfg.num_hidden_accumulators):
+            line, = axs[i].plot([], [])
+            lines.append(line)
+            axs[i].set_xlim(0, args_cli.video_length)
+            axs[i].set_ylim(-1.5, 1.5)
+            axs[i].set_title(f"Hidden Accumulator {i+1}")
+        plt.tight_layout()
+
     # reset environment
     obs = env.reset()
     timestep = 0
@@ -208,6 +229,20 @@ def main():
             actions, _ = agent.predict(obs, deterministic=True)
             # env stepping
             obs, _, _, _ = env.step(actions)
+
+        if args_cli.plotHiddenAccumulators and env_cfg.num_hidden_accumulators > 0:
+            # Extract hidden accumulators from observation
+            if isinstance(obs, (list, tuple)):
+                obs_array = obs[0]  # For VecEnvWrapper, obs is a list with one element
+            else:
+                obs_array = obs
+            hidden_accumulators = obs_array[0, -env_cfg.num_hidden_accumulators :]  # Assuming last N obs are accumulators
+            for i in range(env_cfg.num_hidden_accumulators):
+                data[i].append(hidden_accumulators[i])
+                lines[i].set_data(range(len(data[i])), data[i])
+                axs[i].set_xlim(0, max(10, len(data[i])))
+            plt.pause(0.001)
+            plt.draw()
         if args_cli.video:
             timestep += 1
             # Exit the play loop after recording one video

@@ -500,5 +500,3 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Reset actions to 0.0 (which corresponds to discrete index 1 after conversion)
         self.actions[env_ids] = 0.0
-
-        # LSTM policy handles temporal information - no manual reset needed
