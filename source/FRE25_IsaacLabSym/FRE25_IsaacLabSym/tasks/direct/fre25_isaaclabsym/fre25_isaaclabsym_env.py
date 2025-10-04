@@ -447,7 +447,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         timeOutPenalty = time_out.float() * 0  # -50
 
         # Penalty for plant collisions
-        plantCollisionPenalty = self.plant_collision_buffer.float() * 0  # -50
+        plantCollisionPenalty = self.plant_collision_buffer.float() * -5  # -50
         self.plant_collision_buffer = torch.zeros(self.num_envs, device=self.device)
 
         # Out of bounds penalty
