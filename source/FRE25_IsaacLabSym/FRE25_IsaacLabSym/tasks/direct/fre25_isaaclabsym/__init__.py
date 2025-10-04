@@ -6,6 +6,8 @@
 import gymnasium as gym
 
 from . import agents
+from .fre25_isaaclabsym_env_cfg import Fre25IsaaclabsymEnvCfg
+from .fre25_isaaclabsym_env import Fre25IsaaclabsymEnv
 
 ##
 # Register Gym environments.
@@ -23,3 +25,5 @@ gym.register(
         "sb3_cfg_entry_point": f"{agents.__name__}:sb3_ppo_cfg.yaml",
     },
 )
+
+__all__ = ["Fre25IsaaclabsymEnvCfg", "Fre25IsaaclabsymEnv"]

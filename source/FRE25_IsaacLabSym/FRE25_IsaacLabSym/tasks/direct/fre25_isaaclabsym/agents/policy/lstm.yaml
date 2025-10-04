@@ -1,0 +1,23 @@
+# @package _global_
+# LSTM Policy Configuration  
+# Slower, recurrent, temporal memory
+# Usage: ./RUN_SB3_TRAIN.sh policy=lstm
+
+# Metadata for algorithm selection
+policy_type: "lstm"
+algorithm: "RecurrentPPO"
+policy_class: "MlpLstmPolicy"
+
+# LSTM-optimized training parameters
+n_steps: 512       # Smaller for temporal sequences
+batch_size: 512    # Reduced due to sequential processing
+
+# LSTM network architecture
+policy_kwargs:
+  net_arch:
+    - 256
+    - 128
+  lstm_hidden_size: 256
+  n_lstm_layers: 1
+  enable_critic_lstm: true
+  ortho_init: true

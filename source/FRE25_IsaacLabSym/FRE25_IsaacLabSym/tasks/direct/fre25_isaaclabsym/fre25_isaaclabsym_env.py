@@ -47,9 +47,18 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
     def __init__(
         self, cfg: Fre25IsaaclabsymEnvCfg, render_mode: str | None = None, **kwargs
     ):
-        cfg.nActions = cfg.action_space
-        # Discrete action space: 6 actions, each with 3 categories {-1, 0, 1}
+        # cfg.action_space should already include accumulators if configured
+        # (updated by training script before environment instantiation)
+        print(f"[ENV __init__] cfg.action_space = {cfg.action_space}")
+        print(f"[ENV __init__] cfg.num_hidden_accumulators = {getattr(cfg, 'num_hidden_accumulators', 'NOT SET')}")
+
+        cfg.nActions = cfg.action_space  # Total actions (base control + accumulators)
+
+        # Discrete action space: each action has 3 categories {-1, 0, 1}
         cfg.action_space = MultiDiscrete([3] * cfg.nActions)  # type: ignore
+
+        print(f"[ENV __init__] Created MultiDiscrete with {cfg.nActions} actions: {cfg.action_space}")
+
         self.cfg = cfg
         super().__init__(cfg, render_mode, **kwargs)
 
@@ -146,6 +155,16 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             (self.num_envs, self.plants.raymarcher.raysPerRobot), device=self.device
         )
 
+        # Initialize hidden accumulators for MLP manual memory (if enabled)
+        self.num_hidden_accumulators = getattr(self.cfg, "num_hidden_accumulators", 0)
+        if self.num_hidden_accumulators > 0:
+            print(f"[ENV] 🧠 Initializing {self.num_hidden_accumulators} hidden accumulators for manual memory")
+            self.hidden_accumulators = torch.zeros(
+                (self.num_envs, self.num_hidden_accumulators), device=self.device
+            )
+        else:
+            self.hidden_accumulators = None
+
         # Initialize the robot pose
         self.robot_pose = self.scene.env_origins[:, :2].clone()
         self.past_robot_pose = self.scene.env_origins[:, :2].clone()
@@ -161,10 +180,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Initialize out of bound buffer
         self.out_of_bound_buffer = torch.zeros(self.num_envs, device=self.device)
 
-        # Initialize hidden state accumulator
-        self.hidden_state_accumulator = torch.zeros(
-            self.num_envs, self.cfg.nActions - 2, device=self.device
-        )
+        # LSTM policy handles temporal information - no manual hidden state needed
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
         # print("PRE PHYSICS STEP")
@@ -241,14 +257,20 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.commandBuffer.stepCommands(step)
         self.past_command_actions = advance_command
 
-        # Update hidden state accumulator
-        hiddenStateActions = self.actions[:, 2:]
-        hiddenStateActions = torch.clamp(hiddenStateActions, -1, 1) / 10
-        self.hidden_state_accumulator += hiddenStateActions
-        self.hidden_state_accumulator = torch.clamp(
-            self.hidden_state_accumulator, -1, 1
-        )
-        pass
+        # Update hidden accumulators if enabled (MLP manual memory)
+        if self.num_hidden_accumulators > 0 and self.hidden_accumulators is not None:
+            # Extract accumulator actions (after steering [0] and wheels [1])
+            accumulator_actions = self.actions[:, 2:2 + self.num_hidden_accumulators]
+            # Clamp to [-1, 1] range and update accumulators
+            accumulator_actions = torch.clamp(accumulator_actions, -1, 1)
+            # Accumulate: add action to current value
+            self.hidden_accumulators += accumulator_actions / 10
+            # Update hidden accumulators with the actions
+            self.hidden_accumulators = accumulator_actions.float()
+            # Clamp accumulators to [-1, 1] range
+            self.hidden_accumulators = torch.clamp(
+                self.hidden_accumulators, -1, 1
+            )
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
         # print("GET DONES")
@@ -397,16 +419,18 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # get the current commands
         currentCommands = self.commandBuffer.getCurrentCommands()
 
-        obs = torch.cat(
-            (
-                self.steering_buffer[:, [0]],  # The Current Steering Angle
-                self.actions,  # The Previous Action
-                lidar,  # The Current Lidar Readings
-                currentCommands,  # The Current Commands
-                self.hidden_state_accumulator,  # The Hidden State Accumulator
-            ),
-            dim=-1,
-        )
+        # Base observations: steering (1) + lidar (40) + commands (3) = 44 dims
+        obs_components = [
+            self.steering_buffer[:, [0]],  # The Current Steering Angle
+            lidar,  # The Current Lidar Readings
+            currentCommands,  # The Current Commands
+        ]
+
+        # Add hidden accumulators to observations if enabled (MLP manual memory)
+        if self.num_hidden_accumulators > 0:
+            obs_components.append(self.hidden_accumulators)
+
+        obs = torch.cat(obs_components, dim=-1)
         observations = {"policy": obs}
 
         self.pastLidar = lidar
@@ -447,6 +471,10 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Reset waypoint reward buffer
         self.waypoints.resetRewardBuffer()
 
+        # Reset hidden accumulators if enabled (MLP manual memory)
+        if self.num_hidden_accumulators > 0 and self.hidden_accumulators is not None:
+            self.hidden_accumulators[env_ids] = 0.0
+
         # RESET BUFFERS
 
         # Reset steering buffer
@@ -473,5 +501,4 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Reset actions to 0.0 (which corresponds to discrete index 1 after conversion)
         self.actions[env_ids] = 0.0
 
-        # Reset hidden state accumulator
-        self.hidden_state_accumulator[env_ids] = 0.0
+        # LSTM policy handles temporal information - no manual reset needed

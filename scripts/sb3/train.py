@@ -44,7 +44,9 @@ import os
 import random
 from datetime import datetime
 
+# Import both PPO variants - Hydra will select which to use
 from stable_baselines3 import PPO
+from sb3_contrib import RecurrentPPO
 from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.vec_env import VecNormalize
@@ -76,6 +78,52 @@ import FRE25_IsaacLabSym.tasks  # noqa: F401
 @hydra_task_config(args_cli.task, "sb3_cfg_entry_point")
 def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: dict):
     """Train with stable-baselines agent."""
+
+    # Extract policy configuration from Hydra (set by policy/*.yaml)
+    policy_type = agent_cfg.pop("policy_type", "mlp")
+    algorithm_name = agent_cfg.pop("algorithm", "PPO")
+    policy_class = agent_cfg.pop("policy_class", "MlpPolicy")
+
+    # Extract hidden accumulator configuration (for MLP with manual memory)
+    num_hidden_accumulators = agent_cfg.pop("num_hidden_accumulators", 0)
+
+    print(f"[DEBUG] Policy type: {policy_type}")
+    print(f"[DEBUG] Algorithm: {algorithm_name}")
+    print(f"[DEBUG] num_hidden_accumulators: {num_hidden_accumulators}")
+
+    # Remove Hydra-specific keys that shouldn't be passed to the algorithm
+    agent_cfg.pop("defaults", None)  # Hydra composition metadata
+
+    # Configure environment for hidden accumulators if requested
+    if num_hidden_accumulators > 0 and policy_type == "mlp":
+        print(f"[INFO] 🔧 Enabling {num_hidden_accumulators} hidden accumulators for MLP")
+        env_cfg.num_hidden_accumulators = num_hidden_accumulators
+        # Update action and observation spaces
+        env_cfg.action_space = 2 + num_hidden_accumulators  # steering, wheels, + accumulators
+        env_cfg.observation_space = 44 + num_hidden_accumulators  # base obs + accumulators
+        print(f"[INFO]    Action space: {env_cfg.action_space} (2 control + {num_hidden_accumulators} accumulators)")
+        print(f"[INFO]    Observation space: {env_cfg.observation_space} (44 base + {num_hidden_accumulators} accumulators)")
+    elif num_hidden_accumulators > 0 and policy_type == "lstm":
+        print(f"[WARN] ⚠️  Hidden accumulators ignored for LSTM policy (LSTM has built-in memory)")
+        num_hidden_accumulators = 0
+        env_cfg.num_hidden_accumulators = 0
+
+    # Select algorithm class based on Hydra config
+    if algorithm_name == "RecurrentPPO":
+        from sb3_contrib import RecurrentPPO
+        algorithm_class = RecurrentPPO
+        print(f"[INFO] ✅ Using RecurrentPPO with {policy_class} (LSTM with temporal memory)")
+    elif algorithm_name == "PPO":
+        from stable_baselines3 import PPO
+        algorithm_class = PPO
+        memory_info = f" + {num_hidden_accumulators} accumulators" if num_hidden_accumulators > 0 else " (no memory)"
+        print(f"[INFO] ✅ Using standard PPO with {policy_class} (feedforward MLP{memory_info})")
+    else:
+        raise ValueError(f"Unknown algorithm: {algorithm_name}. Use 'PPO' or 'RecurrentPPO'")
+
+    print(f"[INFO] Policy Type: {policy_type}")
+    print(f"[INFO] n_steps: {agent_cfg.get('n_steps')}, batch_size: {agent_cfg.get('batch_size')}")
+
     # randomly sample a seed if seed = -1
     if args_cli.seed == -1:
         args_cli.seed = random.randint(0, 10000)
@@ -107,7 +155,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # post-process agent configuration
     agent_cfg = process_sb3_cfg(agent_cfg)
     # read configurations about the agent-training
-    policy_arch = agent_cfg.pop("policy")
+    # Note: policy_class is already set by Hydra, no need to pop "policy"
     n_timesteps = agent_cfg.pop("n_timesteps")
 
     # create isaac environment
@@ -150,9 +198,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             clip_reward=np.inf,
         )
 
-    # create agent from stable baselines
-    print(f"[INFO] Creating PPO agent with policy: {policy_arch}")
-    agent = PPO(policy_arch, env, verbose=1, **agent_cfg)
+    # create agent from stable baselines (algorithm selected by Hydra config)
+    print(f"[INFO] Creating {algorithm_name} agent with {policy_class}")
+    agent = algorithm_class(policy_class, env, verbose=1, **agent_cfg)
     # configure the logger
     new_logger = configure(log_dir, ["stdout", "tensorboard"])
     agent.set_logger(new_logger)

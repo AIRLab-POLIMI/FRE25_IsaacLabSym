@@ -1,12 +1,29 @@
 # Stable-Baselines3 PPO Configuration for FRE25 with DISCRETE Actions
-# Uses MultiDiscrete action space: 6 actions, each with 3 categories {-1, 0, 1}
+# Uses MultiDiscrete action space: 2 actions (steering, wheels), each with 3 categories {-1, 0, 1}
+# 
+# Supports both MLP and LSTM policies via Hydra composition
+# Switch with: ./RUN_SB3_TRAIN.sh policy=mlp  OR  policy=lstm
+
+# Hydra composition - specify which policy to use
+# NOTE: Commenting out defaults for now as IsaacLab's Hydra integration doesn't support config groups well
+# defaults:
+#   - policy: mlp  # Options: mlp (default, fast) or lstm (temporal memory)
 
 seed: 42
 
-# Training parameters
+# Policy configuration - MLP by default
+policy_type: mlp  # Options: mlp or lstm
+algorithm: PPO  # PPO for MLP, RecurrentPPO for LSTM
+policy_class: MlpPolicy  # MlpPolicy for MLP, MlpLstmPolicy for LSTM
+
+# Hidden accumulator configuration (MLP only)
+# Set to 0 to disable, or positive integer for number of accumulator dimensions
+num_hidden_accumulators: 8  # Default: 8 accumulators for MLP (set to 0 to disable)
+
+# Training parameters (can be overridden by policy-specific configs)
 n_timesteps: 10000000000000000  # Total timesteps for training
-n_steps: 2048  # Number of steps per environment per update - increased for GPU
-batch_size: 2048  # Minibatch size - increased for maximum GPU utilization
+n_steps: 2048  # Steps per env per update (overridden by policy configs)
+batch_size: 2048  # Minibatch size (overridden by policy configs)
 n_epochs: 10  # Number of epochs when optimizing the surrogate loss
 
 # PPO hyperparameters
@@ -18,16 +35,8 @@ ent_coef: 0.01  # Entropy coefficient for the loss calculation (higher for discr
 vf_coef: 2.0  # Value function coefficient for the loss calculation
 max_grad_norm: 1.0  # Max value for gradient clipping
 
-# Network architecture
-# For MultiDiscrete, SB3 automatically handles the output layer
-policy: "MlpPolicy"  # Use MlpPolicy for simple Box observations, "MultiInputPolicy" for dict obs
-
-# Policy network architecture
+# Base policy architecture (overridden by policy-specific configs)
 policy_kwargs:
-  net_arch:
-    - 512
-    - 256  
-    - 128
   ortho_init: true  # Use orthogonal initialization
 
 # Normalization

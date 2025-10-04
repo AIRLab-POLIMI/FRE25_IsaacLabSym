@@ -1,0 +1,25 @@
+# @package _global_
+# MLP Policy Configuration
+# Fast, feedforward, no temporal memory (or optional hidden accumulators)
+# Usage: ./RUN_SB3_TRAIN.sh policy=mlp
+
+# Metadata for algorithm selection
+policy_type: "mlp"
+algorithm: "PPO"
+policy_class: "MlpPolicy"
+
+# Hidden accumulator configuration (optional manual memory)
+# Set to 0 to disable, or positive integer for number of accumulator dimensions
+num_hidden_accumulators: 8 # Options: 0 (none), 4, 8, 16, etc.
+
+# MLP-optimized training parameters
+n_steps: 2048      # Larger batches for better GPU utilization
+batch_size: 2048   # Can process more in parallel
+
+# MLP network architecture
+policy_kwargs:
+  net_arch:
+    - 512
+    - 256
+    - 128
+  ortho_init: true

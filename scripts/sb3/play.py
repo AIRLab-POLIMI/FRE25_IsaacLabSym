@@ -47,7 +47,9 @@ import os
 import time
 import torch
 
+# Import both PPO variants - will select based on checkpoint
 from stable_baselines3 import PPO
+from sb3_contrib import RecurrentPPO
 from stable_baselines3.common.vec_env import VecNormalize
 
 from isaaclab.envs import DirectMARLEnv, multi_agent_to_single_agent
@@ -117,8 +119,41 @@ def main():
         checkpoint_path = args_cli.checkpoint
     log_dir = os.path.dirname(checkpoint_path)
 
+    # Load saved environment configuration to match training setup
+    saved_env_cfg_path = os.path.join(log_dir, "params", "env.pkl")
+    if os.path.exists(saved_env_cfg_path):
+        print(f"[INFO] Loading saved environment config from: {saved_env_cfg_path}")
+        import pickle
+        with open(saved_env_cfg_path, "rb") as f:
+            saved_env_cfg = pickle.load(f)
+        # Update critical settings that affect action/observation spaces
+        env_cfg.num_hidden_accumulators = getattr(saved_env_cfg, "num_hidden_accumulators", 0)
+        env_cfg.action_space = getattr(saved_env_cfg, "action_space", env_cfg.action_space)
+        env_cfg.observation_space = getattr(saved_env_cfg, "observation_space", env_cfg.observation_space)
+        if env_cfg.num_hidden_accumulators > 0:
+            print(f"[INFO] 🧠 Using {env_cfg.num_hidden_accumulators} hidden accumulators (from saved config)")
+            print(f"[INFO]    Action space: {env_cfg.action_space}")
+            print(f"[INFO]    Observation space: {env_cfg.observation_space}")
+    else:
+        print(f"[WARN] ⚠️  No saved environment config found at: {saved_env_cfg_path}")
+        print(f"[WARN]    Using default environment config (may mismatch with checkpoint)")
+
     # post-process agent configuration
     agent_cfg = process_sb3_cfg(agent_cfg)
+
+    # Determine algorithm type from config (Hydra composition)
+    algorithm_name = agent_cfg.get("algorithm", "PPO")
+    policy_type = agent_cfg.get("policy_type", "mlp")
+
+    # Select correct algorithm class
+    if algorithm_name == "RecurrentPPO":
+        algorithm_class = RecurrentPPO
+        print(f"[INFO] Loading RecurrentPPO checkpoint (LSTM policy)")
+    else:
+        algorithm_class = PPO
+        print(f"[INFO] Loading PPO checkpoint (MLP policy)")
+
+    print(f"[INFO] Policy type: {policy_type}")
 
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
@@ -153,9 +188,10 @@ def main():
             clip_reward=np.inf,
         )
 
-    # create agent from stable baselines
+    # create agent from stable baselines (algorithm determined by config)
     print(f"[INFO] Loading checkpoint from: {checkpoint_path}")
-    agent = PPO.load(checkpoint_path, env, print_system_info=True)
+    agent = algorithm_class.load(checkpoint_path, env, print_system_info=True)
+    print(f"[INFO] {algorithm_name} agent loaded successfully")
 
     dt = env.unwrapped.step_dt
 
