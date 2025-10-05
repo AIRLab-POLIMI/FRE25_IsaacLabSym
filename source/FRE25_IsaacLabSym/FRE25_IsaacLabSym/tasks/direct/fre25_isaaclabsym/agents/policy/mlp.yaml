@@ -35,4 +35,5 @@ policy_kwargs:
     - 256
     - 256
     - 128
+    - 128
   ortho_init: true
