@@ -397,7 +397,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Reward for reaching waypoints
         waypointReward = (
-            waypoints_reached_this_step * 100 / self.waypoints.waypointsPerRow
+            waypoints_reached_this_step * 20 / self.waypoints.waypointsPerRow
         )  # (n_envs,)
 
         # Track waypoints reached for episode statistics
@@ -444,7 +444,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Time out penalty
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        timeOutPenalty = time_out.float() * -5  # -50
+        timeOutPenalty = time_out.float() * -100  # -50
 
         # Penalty for plant collisions
         plantCollisionPenalty = self.plant_collision_buffer.float() * -5  # -50
