@@ -102,7 +102,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         # Actions: 3 control (steering, throttle, step_command) + N hidden states
         env_cfg.action_space = 3 + num_hidden_states
         # Observations: 44 base + (3 + N) past actions (ALL actions fed back)
-        env_cfg.observation_space = 44 + (3 + num_hidden_states)
+        env_cfg.observation_space = 44 + (1 + num_hidden_states)
         print(f"[INFO]    Action space: {env_cfg.action_space} (3 control + {num_hidden_states} hidden states)")
         print(f"[INFO]      - Control: steering, throttle, step_command")
         print(f"[INFO]      - Hidden: {num_hidden_states} state dimensions")
