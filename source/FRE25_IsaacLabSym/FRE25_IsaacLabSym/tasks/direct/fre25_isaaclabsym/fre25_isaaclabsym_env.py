@@ -167,14 +167,16 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         )
 
         # Initialize buffer for ALL past actions (control + hidden states)
-        # These will be fed back as observations to provide memory for the policy
+        # Full buffer stored internally for edge detection and tracking
+        # BUT only step_command + hidden states passed to observations (steering/throttle excluded)
         self.num_hidden_states = getattr(self.cfg, "num_hidden_states", 0)
         self.num_control_actions = 3  # steering, throttle, step_command
         self.num_total_actions = self.num_control_actions + self.num_hidden_states
 
-        print(f"[ENV] 🧠 Initializing buffer for {self.num_total_actions} past actions")
+        print(f"[ENV] 🧠 Initializing buffer for {self.num_total_actions} past actions (internal)")
         print(f"[ENV]    - {self.num_control_actions} control actions (steering, throttle, step_command)")
         print(f"[ENV]    - {self.num_hidden_states} hidden state actions (memory)")
+        print(f"[ENV]    - Policy observes: step_command + {self.num_hidden_states} hidden (steering/throttle excluded)")
 
         # Buffer stores ALL past actions to be fed back as observations
         self.past_actions = torch.zeros(
@@ -304,7 +306,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Increment step counter for all environments (tracks steps since last command step)
         self.steps_since_last_command_step += 1
 
-        # Store ALL actions (control + hidden) for next observation
+        # Store ALL actions (control + hidden) in internal buffer for edge detection and tracking
+        # Note: Only step_command + hidden states are passed to policy observations
         # Control actions: steering, throttle, step_command (now 3 actions)
         # The step_command is stored as {0, 1} to match what the agent outputs
         # Hidden states: remain as {-1, 0, 1}
@@ -512,15 +515,16 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         currentCommands = self.commandBuffer.getCurrentCommands()
 
         # Observations include:
-        # 1. Current steering angle (1 dim)
+        # 1. Current steering angle (1 dim) - from steering_buffer
         # 2. Lidar readings (40 dims)
         # 3. Current commands (3 dims)
-        # 4. ALL past actions: control (steering, throttle, step_command) + hidden states (N dims)
+        # 4. Past actions (memory): ONLY step_command + hidden states (1 + N dims)
+        #    Note: Steering/throttle excluded as steering_buffer provides state
         obs_components = [
             self.steering_buffer[:, [0]],  # The Current Steering Angle
             lidar,  # The Current Lidar Readings
             currentCommands,  # The Current Commands
-            self.past_actions,  # ALL past actions (3 control + N hidden states)
+            self.past_actions[:, 2:],  # Only step_command + hidden states (skip steering & throttle)
         ]
 
         obs = torch.cat(obs_components, dim=-1)
