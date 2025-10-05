@@ -269,9 +269,9 @@ def main():
         ax_lidar.legend(loc='upper right')
 
         # Set fixed limits for lidar plot (assume max range ~10m)
-        # lidar_max_range = 10.0
-        # ax_lidar.set_xlim(-lidar_max_range, lidar_max_range)
-        # ax_lidar.set_ylim(-lidar_max_range, lidar_max_range)
+        lidar_max_range = 1.5
+        ax_lidar.set_xlim(-lidar_max_range, lidar_max_range)
+        ax_lidar.set_ylim(-lidar_max_range, lidar_max_range)
 
         # Figure 2: Other observations (time series)
         fig_obs = plt.figure(figsize=(10, 8))

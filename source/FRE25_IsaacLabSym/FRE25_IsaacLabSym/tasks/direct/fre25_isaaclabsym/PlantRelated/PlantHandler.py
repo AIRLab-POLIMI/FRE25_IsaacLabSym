@@ -39,7 +39,7 @@ class PlantHandler:
             envsOrigins=self.envsOrigins,
             device=self.envsOrigins.device,
             raysPerRobot=40,  # Number of rays per robot
-            maxDistance=10.0,  # Maximum distance for raymarching
+            maxDistance=1.0,  # Maximum distance for raymarching
             tol=0.01,  # Tolerance for raymarching
             maxSteps=100,  # Maximum steps for raymarching
         )
