@@ -29,6 +29,7 @@ parser.add_argument(
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
 
 parser.add_argument("--plotHiddenStates", action="store_true", default=False, help="Plot hidden state action values.")
+parser.add_argument("--plotObservations", action="store_true", default=False, help="Plot observations (lidar + other signals).")
 
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -234,6 +235,74 @@ def main():
         axs[-1].set_xlabel("Timestep")
         plt.tight_layout()
 
+    # Prepare plotting for observations if requested
+    if args_cli.plotObservations:
+        import matplotlib.pyplot as plt
+        import math
+
+        # Observation structure: steering (1) + lidar (40) + commands (3) + past_actions (1 + num_hidden_states)
+        num_lidar_rays = 40
+        num_non_lidar_obs = 1 + 3 + (1 + num_hidden_states)  # steering + commands + past_actions
+
+        print(f"[INFO] Setting up observation plotting:")
+        print(f"[INFO]   - Lidar rays: {num_lidar_rays}")
+        print(f"[INFO]   - Other observations: {num_non_lidar_obs}")
+
+        # Create separate figures for lidar and other observations
+        plt.ion()
+
+        # Figure 1: Lidar visualization (polar/spatial plot)
+        fig_lidar = plt.figure(figsize=(8, 8))
+        ax_lidar = fig_lidar.add_subplot(111)
+        ax_lidar.set_aspect('equal')
+        ax_lidar.set_title('Lidar Visualization (Robot View)', fontsize=14, fontweight='bold')
+        ax_lidar.set_xlabel('X (meters)')
+        ax_lidar.set_ylabel('Y (meters)')
+        ax_lidar.grid(True, alpha=0.3)
+
+        # Initialize lidar scatter plot
+        lidar_scatter = ax_lidar.scatter([], [], c='red', s=50, alpha=0.6, label='Obstacles')
+        lidar_line, = ax_lidar.plot([], [], 'r-', alpha=0.3, linewidth=1)
+
+        # Add robot center marker
+        ax_lidar.scatter([0], [0], c='blue', s=200, marker='o', label='Robot', zorder=5)
+        ax_lidar.legend(loc='upper right')
+
+        # Set fixed limits for lidar plot (assume max range ~10m)
+        # lidar_max_range = 10.0
+        # ax_lidar.set_xlim(-lidar_max_range, lidar_max_range)
+        # ax_lidar.set_ylim(-lidar_max_range, lidar_max_range)
+
+        # Figure 2: Other observations (time series)
+        fig_obs = plt.figure(figsize=(10, 8))
+        num_other_plots = num_non_lidar_obs
+        axs_obs = fig_obs.subplots(num_other_plots, 1)
+        if num_other_plots == 1:
+            axs_obs = [axs_obs]
+
+        lines_obs = []
+        data_obs = [[] for _ in range(num_other_plots)]
+
+        # Observation titles
+        obs_titles = ["Steering Angle"] + \
+                     [f"Command {i+1}" for i in range(3)] + \
+                     ["Past: Step Command"] + \
+                     [f"Past: Hidden State {i+1}" for i in range(num_hidden_states)]
+
+        for i in range(num_other_plots):
+            line, = axs_obs[i].plot([], [])
+            lines_obs.append(line)
+            axs_obs[i].set_xlim(0, args_cli.video_length)
+            # axs_obs[i].set_ylim(-1.5, 1.5)  # Most observations are normalized
+            axs_obs[i].set_ylabel("Value")
+            axs_obs[i].set_title(obs_titles[i])
+            axs_obs[i].grid(True, alpha=0.3)
+        axs_obs[-1].set_xlabel("Timestep")
+        fig_obs.tight_layout()
+
+        # Precompute lidar angles (evenly distributed around 360 degrees)
+        lidar_angles = np.linspace(0, 2 * math.pi, num_lidar_rays, endpoint=False)
+
     # reset environment
     obs = env.reset()
     timestep = 0
@@ -248,25 +317,81 @@ def main():
             # env stepping
             obs, _, _, _ = env.step(actions)
 
-        if args_cli.plotHiddenStates and num_total_actions > 0:
-            # Extract ALL past actions from observation
-            # Observations structure: [steering(1), lidar(40), commands(3), past_actions(2+N)]
-            # Past actions are the last (2 + num_hidden_states) elements
-            if isinstance(obs, (list, tuple)):
-                obs_array = obs[0]  # For VecEnvWrapper, obs is a list with one element
-            else:
-                obs_array = obs
+            if args_cli.plotHiddenStates and num_total_actions > 0:
+                # Extract past actions (last num_total_actions observations)
+                past_actions = actions[0]
+                past_actions[:2] -= 1
 
-            # Extract past actions (last num_total_actions observations)
-            past_actions = obs_array[0, -num_total_actions:]
+                # Update plot data for each action
+                for i in range(num_total_actions):
+                    data[i].append(past_actions[i])
+                    lines[i].set_data(range(len(data[i])), data[i])
+                    axs[i].set_xlim(0, max(10, len(data[i])))
+                plt.pause(0.001)
+                plt.draw()
 
-            # Update plot data for each action
-            for i in range(num_total_actions):
-                data[i].append(past_actions[i])
-                lines[i].set_data(range(len(data[i])), data[i])
-                axs[i].set_xlim(0, max(10, len(data[i])))
-            plt.pause(0.001)
-            plt.draw()
+            if args_cli.plotObservations:
+                # Extract observations from first environment
+                # obs is a dict with 'policy' key containing the observation vector
+                if isinstance(obs, dict):
+                    obs_vector = obs['policy'][0]  # First environment
+                else:
+                    obs_vector = obs[0]  # First environment
+
+                # Convert to numpy if it's a torch tensor
+                if torch.is_tensor(obs_vector):
+                    obs_vector = obs_vector.cpu().numpy()
+
+                # Parse observation structure: steering (1) + lidar (40) + commands (3) + past_actions (1 + num_hidden)
+                idx = 0
+                steering_obs = obs_vector[idx]
+                idx += 1
+
+                lidar_distances = obs_vector[idx:idx + num_lidar_rays]
+                idx += num_lidar_rays
+
+                command_obs = obs_vector[idx:idx + 3]
+                idx += 3
+
+                past_action_obs = obs_vector[idx:]
+
+                # Update lidar visualization (convert polar to cartesian)
+                lidar_x = lidar_distances * np.cos(lidar_angles)
+                lidar_y = lidar_distances * np.sin(lidar_angles)
+
+                # Update scatter plot
+                lidar_scatter.set_offsets(np.c_[lidar_x, lidar_y])
+
+                # Update line plot (connect the points)
+                # Close the loop by appending first point at the end
+                lidar_x_closed = np.append(lidar_x, lidar_x[0])
+                lidar_y_closed = np.append(lidar_y, lidar_y[0])
+                lidar_line.set_data(lidar_x_closed, lidar_y_closed)
+
+                # Update other observations time series
+                other_obs = np.concatenate([[steering_obs], command_obs, past_action_obs])
+                for i in range(len(other_obs)):
+                    data_obs[i].append(other_obs[i])
+                    lines_obs[i].set_data(range(len(data_obs[i])), data_obs[i])
+                    axs_obs[i].set_xlim(0, max(10, len(data_obs[i])))
+
+                    # Dynamic y-scale: adjust to data range with 10% padding
+                    if len(data_obs[i]) > 0:
+                        y_min = min(data_obs[i])
+                        y_max = max(data_obs[i])
+                        y_range = y_max - y_min
+                        if y_range > 0:
+                            padding = y_range * 0.1
+                            axs_obs[i].set_ylim(y_min - padding, y_max + padding)
+                        else:
+                            # If all values are the same, use a default range
+                            axs_obs[i].set_ylim(y_min - 0.5, y_max + 0.5)
+
+                # Refresh plots
+                fig_lidar.canvas.draw_idle()
+                fig_lidar.canvas.flush_events()
+                fig_obs.canvas.draw_idle()
+                fig_obs.canvas.flush_events()
 
         if args_cli.video:
             timestep += 1
