@@ -29,7 +29,7 @@ policy_class: MlpPolicy  # MlpPolicy for MLP, MlpLstmPolicy for LSTM
 # ALL past actions are fed back as observations to provide memory
 # Hidden actions are BINARY: {0, 1} → {-1, +1} (no neutral state)
 # Example: num_hidden_states=2 → 5 total actions (3 control + 2 hidden)
-num_hidden_states: 4  # Default: 8 hidden state dimensions (set to 0 to disable)
+num_hidden_states: 8  # Default: 8 hidden state dimensions (set to 0 to disable)
 
 # Training parameters (can be overridden by policy-specific configs)
 n_timesteps: 10000000000000000  # Total timesteps for training
