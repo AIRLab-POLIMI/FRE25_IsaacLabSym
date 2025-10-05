@@ -71,7 +71,7 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     action_scale = 50000.0  # [N]
     wheels_effort_scale = 20
     # The range of the steering action is [-1, 1], which corresponds to a steering angle of [-steering_scale, steering_scale] degrees
-    steering_scale = 1.2  # degs/step
+    steering_scale = 1  # degs/step
     # - reward scales
     rew_scale_alive = 1.0
     rew_scale_terminated = -2.0
