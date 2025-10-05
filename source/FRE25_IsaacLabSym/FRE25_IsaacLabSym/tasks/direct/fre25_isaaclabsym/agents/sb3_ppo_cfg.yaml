@@ -51,6 +51,6 @@ policy_kwargs:
   ortho_init: true  # Use orthogonal initialization
 
 # Normalization
-normalize_input: true  # Normalize observations
+normalize_input: false  # Normalize observations
 normalize_value: true  # Normalize rewards
 clip_obs: 10.0  # Clip observations
