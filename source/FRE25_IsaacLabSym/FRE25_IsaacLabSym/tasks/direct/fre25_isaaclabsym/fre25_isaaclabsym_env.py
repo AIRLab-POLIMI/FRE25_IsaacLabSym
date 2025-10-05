@@ -444,7 +444,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Time out penalty
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        timeOutPenalty = time_out.float() * -100  # -50
+        timeOutPenalty = time_out.float() * -1000  # -50
 
         # Penalty for plant collisions
         plantCollisionPenalty = self.plant_collision_buffer.float() * -5  # -50
