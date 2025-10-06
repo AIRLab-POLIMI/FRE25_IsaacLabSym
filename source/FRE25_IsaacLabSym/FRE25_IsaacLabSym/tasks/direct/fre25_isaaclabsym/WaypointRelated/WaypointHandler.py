@@ -121,48 +121,84 @@ class WaypointHandler:
     def initializeWaypoints(self):
 
         # Since the robot goes forward, backward, forward, backward... the X positions of the waypoints are always the same
-        # and they alternate between 0 and lineLength as l/2, l, l, l/2, 0, 0, l/2, l, l/2, 0...
-        # with some padding at the end of each row to give the robot space to turn
-        # So the X positions of the waypoints are 6-periodic:
-        start = -self.endOfRowPadding
-        end = self.pathHandler.pathLength + self.endOfRowPadding
+        # In-row waypoints go from 0 to pathLength (no padding)
+        # Extra waypoints at row ends have padding to give space for turning
+        device = self.waypointsPositions.device
 
+        # Create in-row waypoints (no padding)
         rowXs = torch.linspace(
-            start, end, self.waypointsPerRow, device=self.waypointsPositions.device
+            0, self.pathHandler.pathLength, self.waypointsPerRow, device=device
         )
         doubleRowXs = torch.cat((rowXs, torch.flip(rowXs, [0])), dim=0)
 
         envWaypointsX = torch.tile(doubleRowXs, (self.nRows // 2,))
         if self.nRows % 2 == 1:
             envWaypointsX = torch.cat((envWaypointsX, rowXs))
-        envWaypointsX = envWaypointsX[
-            1:
-        ]  # remove the first waypoint (it is at -padding)
+        envWaypointsX = envWaypointsX[1:]  # remove the first waypoint (it is at 0)
 
         # Insert extra waypoints at the end of each row (except last) for turn guidance
-        # These extra waypoints have the same X as the last waypoint of their row
-        device = self.waypointsPositions.device
+        # Extra waypoints have X with padding: either -padding or pathLength+padding
         n_original = len(envWaypointsX)
         n_extras = self.nRows - 1
 
         # Create tensor with space for extras
         envWaypointsX_with_extras = torch.zeros(n_original + n_extras, device=device)
 
-        # Calculate positions where extras should be inserted
-        # After each row (except last): positions waypointsPerRow-1, 2*waypointsPerRow-1, ...
-        extra_insert_after = torch.arange(self.nRows - 1, device=device) * self.waypointsPerRow + (self.waypointsPerRow - 1)
+        # Calculate where each extra should be inserted
+        # After removing first waypoint with envWaypointsX[1:], the structure is:
+        # Row 0: indices [0 to waypointsPerRow-3] → (waypointsPerRow-2) waypoints? NO!
+        # Wait, let me recalculate...
+        #
+        # Original before [1:]: waypointsPerRow waypoints per "period", nRows periods, minus 1
+        # After [1:]: one less waypoint overall
+        #
+        # Actually the logic is:
+        # - doubleRowXs has 2*waypointsPerRow elements
+        # - We tile it nRows//2 times and possibly add one more rowXs
+        # - Then remove the first element
+        #
+        # So for waypointsPerRow=10, nRows=4:
+        # doubleRowXs has 20 elements
+        # tile 2 times = 40 elements
+        # remove first = 39 elements
+        # Row 0: 0-8 (9 elements, ending at 8 = waypointsPerRow-2)
+        # Row 1: 9-18 (10 elements, ending at 18 = 2*waypointsPerRow-2)
+        # Row 2: 19-28 (10 elements, ending at 28 = 3*waypointsPerRow-2)
+        # Row 3: 29-38 (10 elements, ending at 38 = 4*waypointsPerRow-2)
+        #
+        # So the last waypoint of row i is at: (i+1)*waypointsPerRow - 2
+        # For rows 0,1,2 (not the last row 3), we insert extras after these positions
 
-        # Create a mask for where to place original values
-        # Start with all positions for extras marked
+        # In the original array (before insertions), the last waypoint of row i is at:
+        original_row_end_indices = (torch.arange(n_extras, device=device) + 1) * self.waypointsPerRow - 2
+
+        # In the new array (with insertions), each extra shifts subsequent indices by 1
+        # Extra after row 0 goes at position: row_0_end + 1
+        # Extra after row 1 goes at position: row_1_end + 1 + 1 (shifted by previous extra)
+        # Extra after row i goes at position: row_i_end + 1 + i
+        extra_positions_in_new = original_row_end_indices + torch.arange(1, n_extras + 1, device=device)
+
+        # Create a mask for extra positions
         is_extra = torch.zeros(n_original + n_extras, dtype=torch.bool, device=device)
-        extra_positions = extra_insert_after + torch.arange(1, n_extras + 1, device=device)
-        is_extra[extra_positions] = True
+        is_extra[extra_positions_in_new] = True
 
         # Place original waypoints in non-extra positions
         envWaypointsX_with_extras[~is_extra] = envWaypointsX
 
-        # Place extra waypoints (same X as last waypoint of each row)
-        envWaypointsX_with_extras[is_extra] = envWaypointsX[extra_insert_after]
+        # Place extra waypoints with padding (vectorized)
+        # Determine which direction each row goes: even rows go forward (end at pathLength+padding), odd rows go backward (end at -padding)
+        # Row 0 ends at pathLength, so extra after row 0 should be at pathLength + padding
+        # Row 1 ends at 0, so extra after row 1 should be at -padding
+        row_indices = torch.arange(n_extras, device=device)
+        is_forward_row = (row_indices % 2 == 0)  # Even rows go forward
+
+        extra_X_values = torch.where(
+            is_forward_row,
+            self.pathHandler.pathLength + self.endOfRowPadding,
+            -self.endOfRowPadding
+        )
+
+        envWaypointsX_with_extras[is_extra] = extra_X_values
 
         # Use the new waypoints array
         envWaypointsX = envWaypointsX_with_extras
@@ -284,9 +320,7 @@ class WaypointHandler:
         # allRowsY has shape (len(env_ids), nRows)
         # row_assignment has shape (n_logical,)
         # We want logical_waypointsY[env, waypoint] = allRowsY[env, row_assignment[waypoint]]
-        logical_waypointsY = allRowsY[:, row_assignment]  # Broadcasting: (len(env_ids), n_logical)
-
-        # Now insert extra waypoints with Y = average of current and next row
+        logical_waypointsY = allRowsY[:, row_assignment]  # Broadcasting: (len(env_ids), n_logical)        # Now insert extra waypoints with Y = average of current and next row
         # Calculate Y values for extra waypoints
         # allRowsY[:, :-1] = current row Y, allRowsY[:, 1:] = next row Y
         extra_Y = (allRowsY[:, :-1] + allRowsY[:, 1:]) / 2.0  # (len(env_ids), nRows-1)
@@ -294,20 +328,23 @@ class WaypointHandler:
         # Create mask for extra positions (same logic as in initializeWaypoints)
         device = waypointsY.device
         n_extras = self.nRows - 1
+
+        # Calculate where each extra should be inserted (matching initializeWaypoints logic)
+        original_row_end_indices = (torch.arange(n_extras, device=device) + 1) * self.waypointsPerRow - 2
+        extra_positions_in_new = original_row_end_indices + torch.arange(1, n_extras + 1, device=device)
+
         is_extra = torch.zeros(self.nWaypoints, dtype=torch.bool, device=device)
-        extra_insert_after = torch.arange(self.nRows - 1, device=device) * self.waypointsPerRow + (self.waypointsPerRow - 1)
-        extra_positions = extra_insert_after + torch.arange(1, n_extras + 1, device=device)
-        is_extra[extra_positions] = True
+        is_extra[extra_positions_in_new] = True
 
         # Place logical waypoints in non-extra positions
         waypointsY[:, ~is_extra] = logical_waypointsY
 
         # Place extra waypoints with averaged Y values (vectorized)
         # extra_Y has shape (len(env_ids), nRows-1)
-        # extra_positions has shape (nRows-1,)
-        # We want waypointsY[:, extra_positions[i]] = extra_Y[:, i] for all i
-        # This can be done with: waypointsY[:, extra_positions] = extra_Y
-        waypointsY[:, extra_positions] = extra_Y
+        # extra_positions_in_new has shape (nRows-1,)
+        # We want waypointsY[:, extra_positions_in_new[i]] = extra_Y[:, i] for all i
+        # This can be done with: waypointsY[:, extra_positions_in_new] = extra_Y
+        waypointsY[:, extra_positions_in_new] = extra_Y
 
         # add the environment origins to the waypoints
         waypointsY += self.envsOrigins[env_ids, :, 1]

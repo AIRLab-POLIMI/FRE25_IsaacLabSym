@@ -142,12 +142,12 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             envsOrigins=self.scene.env_origins,
             commandBuffer=self.commandBuffer,
             pathHandler=self.paths,
-            waipointReachedEpsilon=0.6,
+            waipointReachedEpsilon=0.4,
             maxDistanceToWaypoint=max(
                 self.paths.pathLength,
                 1.5 * self.paths.pathsSpacing * (self.commandBuffer.maxRows),
             ),
-            endOfRowPadding=0.8,
+            endOfRowPadding=0.6,
             waypointsPerRow=10,
         )
         self.waypoints.initializeWaypoints()
