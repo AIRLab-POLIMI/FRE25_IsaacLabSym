@@ -447,15 +447,15 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Time out penalty
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        timeOutPenalty = time_out.float() * -0  # -50
+        timeOutPenalty = time_out.float() * -10  # -50
 
         # Penalty for plant collisions
-        plantCollisionPenalty = self.plant_collision_buffer.float() * -0  # -50
+        plantCollisionPenalty = self.plant_collision_buffer.float() * -10  # -50
         self.plant_collision_buffer = torch.zeros(self.num_envs, device=self.device)
 
         # Out of bounds penalty
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
-        outOfBoundsPenalty = out_of_bounds.float() * -0  # -50
+        outOfBoundsPenalty = out_of_bounds.float() * -10  # -50
 
         # Penalty for performing a command step
         # This encourages the agent to be selective about when to advance the command buffer
