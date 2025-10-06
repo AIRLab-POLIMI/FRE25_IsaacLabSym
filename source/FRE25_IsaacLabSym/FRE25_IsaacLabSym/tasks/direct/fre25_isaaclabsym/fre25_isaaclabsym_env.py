@@ -459,7 +459,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Penalty for performing a command step
         # This encourages the agent to be selective about when to advance the command buffer
-        commandStepPenalty = -self.command_step_buffer.float()
+        commandStepPenalty = -2 * self.command_step_buffer.float()
 
         # Reset command step buffer after computing the reward
         # This is done here (not in _apply_action) because _apply_action is called
