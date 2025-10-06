@@ -400,7 +400,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Reward for reaching waypoints
         waypointReward = (
-            waypoints_reached_this_step * 0 / self.waypoints.waypointsPerRow
+            waypoints_reached_this_step * 100 / self.waypoints.waypointsPerRow
         )  # (n_envs,)
 
         # Track waypoints reached for episode statistics
