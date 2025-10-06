@@ -31,7 +31,7 @@ batch_size: 2048   # Can process more in parallel
 # MLP network architecture
 policy_kwargs:
   net_arch:
+    - 256
+    - 128
     - 64
-    - 64
-    - 16
   ortho_init: true
