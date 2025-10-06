@@ -30,6 +30,7 @@ parser.add_argument("--real-time", action="store_true", default=False, help="Run
 
 parser.add_argument("--plotHiddenStates", action="store_true", default=False, help="Plot hidden state action values.")
 parser.add_argument("--plotObservations", action="store_true", default=False, help="Plot observations (lidar + other signals).")
+parser.add_argument("--plotRewards", action="store_true", default=False, help="Plot discounted cumulative rewards over time.")
 
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -303,6 +304,48 @@ def main():
         # Precompute lidar angles (evenly distributed around 360 degrees)
         lidar_angles = np.linspace(0, 2 * math.pi, num_lidar_rays, endpoint=False)
 
+    # Prepare plotting for rewards if requested
+    if args_cli.plotRewards:
+        import matplotlib.pyplot as plt
+
+        print(f"[INFO] Setting up reward plotting with gamma={agent_cfg.get('gamma', 0.99)}")
+
+        # Get gamma from agent config
+        gamma = agent_cfg.get('gamma', 0.99)
+
+        # Create figure for reward visualization
+        plt.ion()
+        fig_reward = plt.figure(figsize=(12, 6))
+
+        # Create two subplots: instant reward and discounted cumulative reward
+        ax_instant = fig_reward.add_subplot(2, 1, 1)
+        ax_cumulative = fig_reward.add_subplot(2, 1, 2)
+
+        # Setup instant reward plot
+        ax_instant.set_title('Instant Reward per Step', fontsize=12, fontweight='bold')
+        ax_instant.set_ylabel('Reward')
+        ax_instant.grid(True, alpha=0.3)
+        line_instant, = ax_instant.plot([], [], 'b-', linewidth=1.5, label='Instant Reward')
+        ax_instant.legend(loc='upper right')
+        ax_instant.set_xlim(0, args_cli.video_length)
+
+        # Setup cumulative reward plot
+        ax_cumulative.set_title(f'Discounted Cumulative Reward (γ={gamma})', fontsize=12, fontweight='bold')
+        ax_cumulative.set_xlabel('Timestep')
+        ax_cumulative.set_ylabel('Cumulative Reward')
+        ax_cumulative.grid(True, alpha=0.3)
+        line_cumulative, = ax_cumulative.plot([], [], 'g-', linewidth=2, label='Cumulative Reward')
+        ax_cumulative.legend(loc='upper right')
+        ax_cumulative.set_xlim(0, args_cli.video_length)
+
+        fig_reward.tight_layout()
+
+        # Initialize reward tracking
+        instant_rewards = []
+        cumulative_reward = 0.0
+        cumulative_rewards = []
+        reward_step = 0
+
     # reset environment
     obs = env.reset()
     timestep = 0
@@ -315,7 +358,7 @@ def main():
             # agent stepping
             actions, _ = agent.predict(obs, deterministic=True)
             # env stepping
-            obs, _, _, _ = env.step(actions)
+            obs, rewards, dones, infos = env.step(actions)
 
             if args_cli.plotHiddenStates and num_total_actions > 0:
                 # Extract past actions (last num_total_actions observations)
@@ -392,6 +435,80 @@ def main():
                 fig_lidar.canvas.flush_events()
                 fig_obs.canvas.draw_idle()
                 fig_obs.canvas.flush_events()
+
+            if args_cli.plotRewards:
+                # Extract reward from first environment
+                if isinstance(rewards, np.ndarray):
+                    current_reward = float(rewards[0])
+                else:
+                    current_reward = float(rewards)
+
+                # Update instant reward
+                instant_rewards.append(current_reward)
+
+                # Update discounted cumulative reward
+                # G_t = r_t + γ * G_{t-1}
+                cumulative_reward = current_reward + gamma * cumulative_reward
+                cumulative_rewards.append(cumulative_reward)
+
+                # Update plots
+                reward_step += 1
+                timesteps_reward = list(range(len(instant_rewards)))
+
+                # Update instant reward plot
+                line_instant.set_data(timesteps_reward, instant_rewards)
+                ax_instant.set_xlim(0, max(10, len(instant_rewards)))
+                if len(instant_rewards) > 0:
+                    y_min = min(instant_rewards)
+                    y_max = max(instant_rewards)
+                    y_range = y_max - y_min
+                    if y_range > 0:
+                        padding = y_range * 0.1
+                        ax_instant.set_ylim(y_min - padding, y_max + padding)
+                    else:
+                        ax_instant.set_ylim(y_min - 1, y_max + 1)
+
+                # Update cumulative reward plot
+                line_cumulative.set_data(timesteps_reward, cumulative_rewards)
+                ax_cumulative.set_xlim(0, max(10, len(cumulative_rewards)))
+                if len(cumulative_rewards) > 0:
+                    y_min = min(cumulative_rewards)
+                    y_max = max(cumulative_rewards)
+                    y_range = y_max - y_min
+                    if y_range > 0:
+                        padding = y_range * 0.1
+                        ax_cumulative.set_ylim(y_min - padding, y_max + padding)
+                    else:
+                        ax_cumulative.set_ylim(y_min - 1, y_max + 1)
+
+                # Refresh plot
+                fig_reward.canvas.draw_idle()
+                fig_reward.canvas.flush_events()
+
+                # Check for environment reset and clear accumulators/plots
+            if dones[0]:  # First environment done
+                print("[INFO] Environment reset detected - clearing plots and accumulators")
+
+                # # Reset hidden states plot data
+                # if args_cli.plotHiddenStates and num_total_actions > 0:
+                #     for i in range(num_total_actions):
+                #         data[i].clear()
+                #         lines[i].set_data([], [])
+
+                # # Reset observations plot data
+                # if args_cli.plotObservations:
+                #     for i in range(num_other_plots):
+                #         data_obs[i].clear()
+                #         lines_obs[i].set_data([], [])
+
+                # Reset rewards plot data and cumulative reward
+                if args_cli.plotRewards:
+                    instant_rewards.clear()
+                    cumulative_rewards.clear()
+                    cumulative_reward = 0.0
+                    reward_step = 0
+                    # line_instant.set_data([], [])
+                    # line_cumulative.set_data([], [])
 
         if args_cli.video:
             timestep += 1
