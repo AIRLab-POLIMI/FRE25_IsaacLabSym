@@ -22,11 +22,11 @@ policy_class: "MlpPolicy"
 # ALL past actions are fed back as observations to provide temporal memory
 # Hidden states are BINARY: {0, 1} → {-1, +1} (no neutral state)
 # Set to 0 to disable, or positive integer for number of hidden state dimensions
-num_hidden_states: 4 # Options: 0 (none), 2, 4, 8, 16, etc.
+# num_hidden_states: 4 # Options: 0 (none), 2, 4, 8, 16, etc.
 
 # MLP-optimized training parameters
-n_steps: 2048      # Larger batches for better GPU utilization
-batch_size: 2048   # Can process more in parallel
+# n_steps: 2048      # Larger batches for better GPU utilization
+# batch_size: 2048   # Can process more in parallel
 
 # MLP network architecture
 policy_kwargs:

@@ -33,8 +33,8 @@ num_hidden_states: 4  # Default: 8 hidden state dimensions (set to 0 to disable)
 
 # Training parameters (can be overridden by policy-specific configs)
 n_timesteps: 10000000000000000  # Total timesteps for training
-n_steps: 2048  # Steps per env per update (overridden by policy configs)
-batch_size: 2048  # Minibatch size (overridden by policy configs)
+n_steps: 252  # Steps per env per update (overridden by policy configs)
+batch_size: 252  # Minibatch size (overridden by policy configs)
 n_epochs: 10  # Number of epochs when optimizing the surrogate loss
 
 # PPO hyperparameters
