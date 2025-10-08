@@ -543,6 +543,15 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         default_root_state = self.robots.data.default_root_state[env_ids]
         default_root_state[:, :3] += self.scene.env_origins[env_ids]
 
+        # Randomize robot yaw
+        if self.cfg.randomize_yaw:
+            yaw = torch.rand((len(env_ids), 1), device=self.device) > 0.5
+            yaw = yaw.float() * math.pi
+            quat = torch.zeros((len(env_ids), 4), device=self.device)
+            quat[:, 0] = torch.cos(yaw[:, 0] / 2)
+            quat[:, 3] = torch.sin(yaw[:, 0] / 2)
+            default_root_state[:, 3:7] = quat
+
         self.joint_pos[env_ids] = joint_pos
         self.joint_vel[env_ids] = joint_vel
 

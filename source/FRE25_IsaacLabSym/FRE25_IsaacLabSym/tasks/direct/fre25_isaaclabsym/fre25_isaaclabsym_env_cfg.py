@@ -61,6 +61,9 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
         num_envs=1, env_spacing=20.0, replicate_physics=True
     )
 
+    # Whether to randomize robot yaw on reset
+    randomize_yaw: bool = True
+
     # custom parameters/scales
     # - controllable joint
     cart_dof_name = "slider_to_cart"
