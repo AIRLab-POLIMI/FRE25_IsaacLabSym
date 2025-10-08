@@ -537,6 +537,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             env_ids = self.robots._ALL_INDICES
         super()._reset_idx(env_ids)
 
+        # Reset buffers
+        self.reset_buffers(env_ids)
+
         joint_pos = self.robots.data.default_joint_pos[env_ids]
         joint_vel = self.robots.data.default_joint_vel[env_ids]
 
@@ -545,12 +548,14 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Randomize robot yaw
         if self.cfg.randomize_yaw:
-            yaw = torch.rand((len(env_ids), 1), device=self.device) > 0.5
-            yaw = yaw.float() * math.pi
+            yaw_rand = torch.rand((len(env_ids), 1), device=self.device) > 0.5
+            yaw = yaw_rand.float() * math.pi
             quat = torch.zeros((len(env_ids), 4), device=self.device)
             quat[:, 0] = torch.cos(yaw[:, 0] / 2)
             quat[:, 3] = torch.sin(yaw[:, 0] / 2)
             default_root_state[:, 3:7] = quat
+
+            self.past_actions[env_ids, -1] = yaw_rand
 
         self.joint_pos[env_ids] = joint_pos
         self.joint_vel[env_ids] = joint_vel
@@ -574,10 +579,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Reset waypoint reward buffer
         self.waypoints.resetRewardBuffer()
 
+    def reset_buffers(self, env_ids: Sequence[int] | None = None) -> None:
         # Reset past actions buffer (all actions: 3 control + hidden states)
         self.past_actions[env_ids] = 0.0
-
-        # RESET BUFFERS
 
         # Reset steering buffer
         self.steering_buffer[env_ids] = 0.0
