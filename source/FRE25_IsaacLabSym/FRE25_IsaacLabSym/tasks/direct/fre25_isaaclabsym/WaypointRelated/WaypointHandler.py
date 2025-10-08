@@ -298,6 +298,14 @@ class WaypointHandler:
         # Strategy: Create Y values for "logical" structure without extras first,
         # then expand to include extras
 
+        # Create mask for extra positions first (needed for X coordinate extraction)
+        device = waypointsY.device
+        n_extras = self.nRows - 1
+        original_row_end_indices = (torch.arange(n_extras, device=device) + 1) * self.waypointsPerRow - 2
+        extra_positions_in_new = original_row_end_indices + torch.arange(1, n_extras + 1, device=device)
+        is_extra = torch.zeros(self.nWaypoints, dtype=torch.bool, device=device)
+        is_extra[extra_positions_in_new] = True
+
         # Logical waypoints (without extras): waypointsPerRow-1 per row
         n_logical = self.nRows * self.waypointsPerRow - 1
         logical_waypointsY = torch.zeros((len(env_ids), n_logical), device=waypointsY.device)
@@ -320,21 +328,93 @@ class WaypointHandler:
         # allRowsY has shape (len(env_ids), nRows)
         # row_assignment has shape (n_logical,)
         # We want logical_waypointsY[env, waypoint] = allRowsY[env, row_assignment[waypoint]]
-        logical_waypointsY = allRowsY[:, row_assignment]  # Broadcasting: (len(env_ids), n_logical)        # Now insert extra waypoints with Y = average of current and next row
+        logical_waypointsY = allRowsY[:, row_assignment]  # Broadcasting: (len(env_ids), n_logical)
+
+        # Sample Y offsets from spline for logical waypoints to follow path shape
+        # Get X coordinates for logical waypoints (non-extra waypoints)
+        # X coordinates are already stored in self.waypointsPositions - extract non-extra ones
+        all_X = self.waypointsPositions[env_ids, :, 0]  # (len(env_ids), nWaypoints)
+        # Remove environment origins to get relative X
+        all_X = all_X - self.envsOrigins[env_ids, :, 0]
+        logical_X = all_X[:, ~is_extra]  # (len(env_ids), n_logical)
+
+        # Determine which path each waypoint belongs to based on row and commands
+        # For each row, we need to figure out which path index to use
+        # Row 0 starts at path 0, then each command changes path by turnsMagnitudes
+        # Build path indices for each row: shape (len(env_ids), nRows)
+        row_path_indices = torch.zeros((len(env_ids), self.nRows), dtype=torch.long, device=logical_X.device)
+        # First row always starts at middle path (index 0 relative to spline center)
+        # Subsequent rows: cumsum of (turnsMagnitudes * globalTurnDirectionsSign)
+        # But turnsMagnitudes is in units of "number of paths", and we're working with the spline Y offset
+        # The spline gives us base Y, and we add path spacing later, so path_indices here are not needed
+        # Actually, we just need the spline Y offset which is the same for all paths at a given X
+
+        # Sample Y offsets from spline (all environments can use the spline for their X positions)
+        # The spline provides the Y offset at each X position
+        # We need to handle forward/backward rows: backward rows need reversed X sampling
+
+        # Determine forward/backward for each row
+        rows_forward = torch.arange(self.nRows, device=logical_X.device) % 2 == 0  # (nRows,)
+
+        # For each logical waypoint, determine if its row is forward or backward
+        waypoint_forward = rows_forward[row_assignment]  # (n_logical,)
+
+        # For backward rows, we need to sample the spline in reverse X order
+        # Spline t-values for forward: t = X / pathLength
+        # Spline t-values for backward: t = (pathLength - X) / pathLength
+        logical_X_for_sampling = torch.where(
+            waypoint_forward[None, :],  # Broadcast to (len(env_ids), n_logical)
+            logical_X,
+            self.pathHandler.pathLength - logical_X
+        )
+
+        # Sample Y offsets from spline (vectorized for all environments and waypoints)
+        # Convert X to t values [0, 1]
+        t_values = logical_X_for_sampling / self.pathHandler.pathLength
+        t_values = torch.clamp(t_values, 0.0, 1.0)
+
+        # We need to evaluate the spline for each environment's unique set of t values
+        # The spline stores per-environment splines, and evaluate expects a 1D tensor of t values
+        # Since each environment may have different t values, we need to evaluate per-environment
+
+        # For now, let's use a vectorized approach by evaluating all unique t values
+        # and then indexing. But actually, t_values shape is (len(env_ids), n_logical)
+        # For full vectorization, we can flatten, get unique t values, evaluate, then map back
+
+        # Simpler approach: evaluate per environment in a loop (still faster than Python loop due to GPU)
+        # But let's try to vectorize: we can evaluate the spline at all t values for all envs
+        # by creating a common grid and then selecting the right indices
+
+        # Most vectorized approach: evaluate at specific t for each waypoint across all envs
+        # Spline.evaluate(t) where t is (n_points,) returns (nEnvs, n_points, 2)
+        # We can evaluate each unique t value, but different waypoints have different t values
+
+        # Practical vectorized solution: evaluate spline for each environment's t_values
+        spline_y_offsets = torch.zeros_like(logical_X)
+        for i, env_id in enumerate(env_ids):
+            # Get t values for this environment
+            t_env = t_values[i]  # (n_logical,)
+            # Evaluate spline for all t values at once
+            spline_eval = self.pathHandler.spline.evaluate(t_env)  # (nEnvs, n_logical, 2)
+            # Extract this environment's values (use env_id as index into full env array)
+            spline_y_offsets[i] = spline_eval[env_id, :, 1]  # Y component
+
+        # For backward rows, flip the Y offset sign (robot traveling in opposite direction)
+        # Apply sign flip based on whether waypoint is in forward or backward row
+        y_offset_sign = torch.where(waypoint_forward, 1.0, -1.0)  # (n_logical,)
+        spline_y_offsets = spline_y_offsets * y_offset_sign[None, :]
+
+        # Apply spline offsets to logical waypoints, but skip first waypoint (index 0)
+        # Create mask: skip waypoint 0
+        offset_mask = torch.arange(n_logical, device=logical_X.device) > 0  # (n_logical,)
+
+        # Apply offsets only where mask is True
+        logical_waypointsY = logical_waypointsY + (spline_y_offsets * offset_mask[None, :])
+
+        # Now insert extra waypoints with Y = average of current and next row
         # Calculate Y values for extra waypoints
         # allRowsY[:, :-1] = current row Y, allRowsY[:, 1:] = next row Y
         extra_Y = (allRowsY[:, :-1] + allRowsY[:, 1:]) / 2.0  # (len(env_ids), nRows-1)
-
-        # Create mask for extra positions (same logic as in initializeWaypoints)
-        device = waypointsY.device
-        n_extras = self.nRows - 1
-
-        # Calculate where each extra should be inserted (matching initializeWaypoints logic)
-        original_row_end_indices = (torch.arange(n_extras, device=device) + 1) * self.waypointsPerRow - 2
-        extra_positions_in_new = original_row_end_indices + torch.arange(1, n_extras + 1, device=device)
-
-        is_extra = torch.zeros(self.nWaypoints, dtype=torch.bool, device=device)
-        is_extra[extra_positions_in_new] = True
 
         # Place logical waypoints in non-extra positions
         waypointsY[:, ~is_extra] = logical_waypointsY

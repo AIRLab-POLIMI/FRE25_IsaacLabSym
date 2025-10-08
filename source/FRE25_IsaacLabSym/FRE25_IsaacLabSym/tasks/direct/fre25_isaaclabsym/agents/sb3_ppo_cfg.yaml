@@ -39,10 +39,10 @@ n_epochs: 10  # Number of epochs when optimizing the surrogate loss
 
 # PPO hyperparameters
 learning_rate: 0.0005  # Learning rate
-gamma: 0.99  # Discount factor (horizon ~100 steps)
+gamma: 0.995  # Discount factor (horizon ~100 steps)
 gae_lambda: 0.99  # Factor for trade-off of bias vs variance for GAE
 clip_range: 0.2  # Clipping parameter for PPO
-ent_coef: 0.1  # Entropy coefficient for the loss calculation (higher for discrete actions)
+ent_coef: 0.05 # Entropy coefficient for the loss calculation (higher for discrete actions)
 vf_coef: 2.0  # Value function coefficient for the loss calculation
 max_grad_norm: 1.0  # Max value for gradient clipping
 

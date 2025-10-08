@@ -143,10 +143,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             commandBuffer=self.commandBuffer,
             pathHandler=self.paths,
             waipointReachedEpsilon=0.4,
-            maxDistanceToWaypoint=max(
-                self.paths.pathLength,
-                1.5 * self.paths.pathsSpacing * (self.commandBuffer.maxRows),
-            ),
+            maxDistanceToWaypoint=1.2,
             endOfRowPadding=0.6,
             waypointsPerRow=10,
         )
@@ -277,7 +274,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Agent-controlled command buffer stepping via step_command action
         # Extract step_command action (binary: 0 or 1)
-        step_command_action = self.actions[:, 2]
+        step_command_action = self.actions[:, 2] * 0
         step_command = (step_command_action > 0.5).bool()  # Convert to boolean
 
         # Rising edge detection: step only when transitioning from 0 → 1
@@ -431,7 +428,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # print(
         #     f"toWaypointDir: {toWaypointDir}, velocity:{velocity}, dt: {dt}, velocityTowardsWaypoint: {velocityTowardsWaypoint}"
         # )
-        velocityTowardsWaypoint *= 0.1
+        velocityTowardsWaypoint *= 1.0
 
         # Comunte velocity orthogonal to the waypoint direction and penalize it
         # velocityOrthogonalToWaypoint = (
@@ -447,19 +444,19 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Time out penalty
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        timeOutPenalty = time_out.float() * -50  # -50
+        timeOutPenalty = time_out.float() * -100  # -50
 
         # Penalty for plant collisions
-        plantCollisionPenalty = self.plant_collision_buffer.float() * -10  # -50
+        plantCollisionPenalty = self.plant_collision_buffer.float() * -0  # -50
         self.plant_collision_buffer = torch.zeros(self.num_envs, device=self.device)
 
         # Out of bounds penalty
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
-        outOfBoundsPenalty = out_of_bounds.float() * -10  # -50
+        outOfBoundsPenalty = out_of_bounds.float() * -0  # -50
 
         # Penalty for performing a command step
         # This encourages the agent to be selective about when to advance the command buffer
-        commandStepPenalty = -5 * self.command_step_buffer.float()
+        commandStepPenalty = -10 * self.command_step_buffer.float()
 
         # Reset command step buffer after computing the reward
         # This is done here (not in _apply_action) because _apply_action is called

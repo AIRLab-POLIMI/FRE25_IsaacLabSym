@@ -94,6 +94,42 @@ class PathHandler:
 
         return points
 
+    def sampleYOffsetFromX(self, x_positions: torch.Tensor, path_indices: torch.Tensor):
+        """
+        Sample Y offsets from the spline for given X positions and path indices.
+
+        Args:
+            x_positions: X coordinates to sample at, shape (n_envs, n_waypoints)
+            path_indices: Path indices for each waypoint, shape (n_envs, n_waypoints)
+
+        Returns:
+            Y offsets from the spline, shape (n_envs, n_waypoints)
+        """
+        assert hasattr(self, 'spline'), "Spline not generated. Call generatePath() first."
+        assert x_positions.dim() == 2, f"x_positions must be 2D (n_envs, n_waypoints), got {x_positions.dim()}D"
+        assert path_indices.dim() == 2, f"path_indices must be 2D (n_envs, n_waypoints), got {path_indices.dim()}D"
+        assert x_positions.shape == path_indices.shape, f"x_positions and path_indices must have same shape"
+
+        # Convert X positions to t values (normalized to [0, 1])
+        t_values = x_positions / self.pathLength
+        t_values = torch.clamp(t_values, 0.0, 1.0)
+
+        # Flatten for batch evaluation
+        n_envs, n_waypoints = x_positions.shape
+        t_flat = t_values.flatten()
+
+        # Evaluate spline at all t values
+        # spline.evaluate expects 1D tensor, returns (n_envs, n_points, 2)
+        spline_points = self.spline.evaluate(t_flat)  # (n_total_points, 2)
+
+        # Reshape to (n_envs * n_waypoints, 2)
+        spline_xy = spline_points.view(n_envs, n_waypoints, 2)
+
+        # Extract Y offsets (index 1 is Y coordinate)
+        y_offsets = spline_xy[:, :, 1]
+
+        return y_offsets
+
 
 if __name__ == "__main__":
     pathHandler = PathHandler(nPaths=5, nControlPoints=10, pathLength=10.0, pathWidth=0.5)
