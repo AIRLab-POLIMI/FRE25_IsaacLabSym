@@ -428,7 +428,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # print(
         #     f"toWaypointDir: {toWaypointDir}, velocity:{velocity}, dt: {dt}, velocityTowardsWaypoint: {velocityTowardsWaypoint}"
         # )
-        velocityTowardsWaypoint *= 1.0
+        velocityTowardsWaypoint *= 0.5
 
         # Comunte velocity orthogonal to the waypoint direction and penalize it
         # velocityOrthogonalToWaypoint = (
@@ -444,7 +444,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Time out penalty
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        timeOutPenalty = time_out.float() * -100  # -50
+        timeOutPenalty = time_out.float() * -0  # -50
 
         # Penalty for plant collisions
         plantCollisionPenalty = self.plant_collision_buffer.float() * -0  # -50
@@ -521,7 +521,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             self.steering_buffer[:, [0]],  # The Current Steering Angle
             lidar,  # The Current Lidar Readings
             currentCommands,  # The Current Commands
-            self.past_actions[:, 2:],  # Only step_command + hidden states (skip steering & throttle)
+            self.past_actions,  # All the past actions
         ]
 
         obs = torch.cat(obs_components, dim=-1)
