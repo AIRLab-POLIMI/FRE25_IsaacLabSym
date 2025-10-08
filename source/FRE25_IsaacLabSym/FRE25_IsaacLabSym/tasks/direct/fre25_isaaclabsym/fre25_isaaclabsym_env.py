@@ -555,7 +555,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             quat[:, 3] = torch.sin(yaw[:, 0] / 2)
             default_root_state[:, 3:7] = quat
 
-            self.past_actions[env_ids, -1] = yaw_rand
+            self.past_actions[env_ids, -1] = yaw_rand.squeeze(-1).float()
 
         self.joint_pos[env_ids] = joint_pos
         self.joint_vel[env_ids] = joint_vel
@@ -581,7 +581,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
     def reset_buffers(self, env_ids: Sequence[int] | None = None) -> None:
         # Reset past actions buffer (all actions: 3 control + hidden states)
-        self.past_actions[env_ids] = 0.0
+        self.past_actions[env_ids, :3] = 0.0
+        self.past_actions[env_ids, 3:] = -1  # Hidden states
 
         # Reset steering buffer
         self.steering_buffer[env_ids] = 0.0

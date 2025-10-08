@@ -241,9 +241,10 @@ def main():
         import matplotlib.pyplot as plt
         import math
 
-        # Observation structure: steering (1) + lidar (40) + commands (3) + past_actions (1 + num_hidden_states)
+        # Observation structure: steering (1) + lidar (40) + commands (3) + past_actions (3 + num_hidden_states)
+        # Past actions now include: steering, throttle, step_command + hidden states
         num_lidar_rays = 40
-        num_non_lidar_obs = 1 + 3 + (1 + num_hidden_states)  # steering + commands + past_actions
+        num_non_lidar_obs = 1 + 3 + (3 + num_hidden_states)  # steering + commands + past_actions (all)
 
         print(f"[INFO] Setting up observation plotting:")
         print(f"[INFO]   - Lidar rays: {num_lidar_rays}")
@@ -287,7 +288,7 @@ def main():
         # Observation titles
         obs_titles = ["Steering Angle"] + \
                      [f"Command {i+1}" for i in range(3)] + \
-                     ["Past: Step Command"] + \
+                     ["Past: Steering", "Past: Throttle", "Past: Step Command"] + \
                      [f"Past: Hidden State {i+1}" for i in range(num_hidden_states)]
 
         for i in range(num_other_plots):

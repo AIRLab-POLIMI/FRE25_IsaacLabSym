@@ -38,7 +38,7 @@ batch_size: 252  # Minibatch size (overridden by policy configs)
 n_epochs: 10  # Number of epochs when optimizing the surrogate loss
 
 # PPO hyperparameters
-learning_rate: 0.0005  # Learning rate
+learning_rate: 0.0001  # Learning rate
 gamma: 0.995  # Discount factor (horizon ~100 steps)
 gae_lambda: 0.99  # Factor for trade-off of bias vs variance for GAE
 clip_range: 0.2  # Clipping parameter for PPO
