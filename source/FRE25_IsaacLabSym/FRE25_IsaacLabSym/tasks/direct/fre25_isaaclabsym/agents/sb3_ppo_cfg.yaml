@@ -33,16 +33,16 @@ num_hidden_states: 4  # Default: 8 hidden state dimensions (set to 0 to disable)
 
 # Training parameters (can be overridden by policy-specific configs)
 n_timesteps: 10000000000000000  # Total timesteps for training
-n_steps: 252  # Steps per env per update (overridden by policy configs)
-batch_size: 252  # Minibatch size (overridden by policy configs)
+n_steps: 256  # Steps per env per update (overridden by policy configs)
+batch_size: 256  # Minibatch size (overridden by policy configs)
 n_epochs: 10  # Number of epochs when optimizing the surrogate loss
 
 # PPO hyperparameters
-learning_rate: 0.0001  # Learning rate
+learning_rate: 0.0005  # Learning rate
 gamma: 0.995  # Discount factor (horizon ~100 steps)
-gae_lambda: 0.99  # Factor for trade-off of bias vs variance for GAE
+gae_lambda: 0.995  # Factor for trade-off of bias vs variance for GAE
 clip_range: 0.2  # Clipping parameter for PPO
-ent_coef: 0.05 # Entropy coefficient for the loss calculation (higher for discrete actions)
+ent_coef: 0.01 # Entropy coefficient for the loss calculation (higher for discrete actions)
 vf_coef: 2.0  # Value function coefficient for the loss calculation
 max_grad_norm: 1.0  # Max value for gradient clipping
 

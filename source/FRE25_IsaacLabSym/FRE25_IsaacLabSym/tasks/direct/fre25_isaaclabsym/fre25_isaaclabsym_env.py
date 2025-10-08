@@ -129,7 +129,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             nPaths=6,
             pathsSpacing=1.2,
             nControlPoints=10,
-            pathLength=4,
+            pathLength=2,
             pathWidth=0.15,
             pointNoiseStd=0.03,
         )
@@ -143,9 +143,10 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             commandBuffer=self.commandBuffer,
             pathHandler=self.paths,
             waipointReachedEpsilon=0.4,
-            maxDistanceToWaypoint=1.2,
-            endOfRowPadding=0.6,
-            waypointsPerRow=10,
+            maxDistanceToWaypoint=2,
+            endOfRowPadding=0.4,
+            extraWaypointPadding=0.9,
+            waypointsPerRow=3,
         )
         self.waypoints.initializeWaypoints()
 
@@ -179,6 +180,16 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.past_actions = torch.zeros(
             (self.num_envs, self.num_total_actions), device=self.device
         )
+
+        # Initialize hidden state accumulators for differential control
+        # Hidden actions {-1, +1} are integrated into bounded accumulators [-1, 1]
+        if self.num_hidden_states > 0:
+            self.hidden_state_accumulators = torch.zeros(
+                (self.num_envs, self.num_hidden_states), device=self.device
+            )
+            print(f"[ENV] 📊 Hidden state accumulators initialized (differential control)")
+            print(f"[ENV]    - Scale: {self.cfg.hidden_state_scale} (step size per action)")
+            print(f"[ENV]    - Range: [-1.0, 1.0] (clipped)")
 
         # Initialize the robot pose
         self.robot_pose = self.scene.env_origins[:, :2].clone()
@@ -307,13 +318,23 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Note: Only step_command + hidden states are passed to policy observations
         # Control actions: steering, throttle, step_command (now 3 actions)
         # The step_command is stored as {0, 1} to match what the agent outputs
-        # Hidden states: remain as {-1, 0, 1}
+        # Hidden states: differential control with bounded integration
         all_actions = self.actions[:, :self.num_total_actions].clone()
         # Normalize control actions to [-1, 1] range for consistency
         all_actions[:, 0:2] = torch.clamp(all_actions[:, 0:2], -1, 1)  # steering, throttle
         all_actions[:, 2] = torch.clamp(all_actions[:, 2], 0, 1)  # step_command (binary)
+
+        # Apply differential control to hidden state accumulators
+        # Actions {-1, +1} are velocity commands, accumulators are integrated positions
         if self.num_hidden_states > 0:
-            all_actions[:, 3:] = torch.clamp(all_actions[:, 3:], -1, 1)  # hidden states
+            hidden_deltas = all_actions[:, 3:] * self.cfg.hidden_state_scale
+            self.hidden_state_accumulators += hidden_deltas
+            self.hidden_state_accumulators = torch.clamp(
+                self.hidden_state_accumulators, -1.0, 1.0
+            )
+            # Store integrated accumulator values (not deltas) for observations
+            all_actions[:, 3:] = self.hidden_state_accumulators.clone()
+
         self.past_actions = all_actions
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
@@ -444,15 +465,15 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Time out penalty
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        timeOutPenalty = time_out.float() * -0  # -50
+        timeOutPenalty = time_out.float() * -50  # -50
 
         # Penalty for plant collisions
-        plantCollisionPenalty = self.plant_collision_buffer.float() * -0  # -50
+        plantCollisionPenalty = self.plant_collision_buffer.float() * -10  # -50
         self.plant_collision_buffer = torch.zeros(self.num_envs, device=self.device)
 
         # Out of bounds penalty
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
-        outOfBoundsPenalty = out_of_bounds.float() * -0  # -50
+        outOfBoundsPenalty = out_of_bounds.float() * -10  # -50
 
         # Penalty for performing a command step
         # This encourages the agent to be selective about when to advance the command buffer
@@ -464,6 +485,9 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # called once per step, so the penalty is applied correctly.
         self.command_step_buffer[:] = False
 
+        # Distance to waypoint penalty (encourage getting closer)
+        distancePenalty = -torch.clamp(toWaypointNorm.squeeze() - 0.1, min=0) * 0.5
+
         # Note: No action bound violation penalty for discrete actions
 
         totalReward = (
@@ -474,6 +498,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             + plantCollisionPenalty
             + outOfBoundsPenalty
             + commandStepPenalty
+            + distancePenalty
         )
         # print(f"totalReward: {totalReward}")
 
@@ -582,7 +607,11 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
     def reset_buffers(self, env_ids: Sequence[int] | None = None) -> None:
         # Reset past actions buffer (all actions: 3 control + hidden states)
         self.past_actions[env_ids, :3] = 0.0
-        self.past_actions[env_ids, 3:] = -1  # Hidden states
+        self.past_actions[env_ids, 3:] = 0.0  # Hidden state accumulators start at 0 (neutral)
+
+        # Reset hidden state accumulators (differential integrators)
+        if self.num_hidden_states > 0:
+            self.hidden_state_accumulators[env_ids] = 0.0
 
         # Reset steering buffer
         self.steering_buffer[env_ids] = 0.0

@@ -29,6 +29,7 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     # If num_hidden_states > 0, add extra dummy actions for memory
     # ALL past actions (control + hidden) are fed back as observations
     num_hidden_states = 0  # Set by agent config if using hidden states
+    hidden_state_scale = 0.005  # Scale for differential hidden state updates (integrator step size)
 
     # Base observation space (without past actions):
     # 1 current steering + 40 lidar + 3 command buffer = 44 total

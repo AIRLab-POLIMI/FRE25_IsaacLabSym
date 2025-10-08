@@ -88,10 +88,12 @@ class EnhancedLoggingCallback(BaseCallback):
                     oob_mean = oob_sum / total_episodes
                     timeouts_mean = timeouts_sum / total_episodes
                     waypoints_std = np.std(waypointsAverge) if waypointsAverge else 0.0
-                    waypopints_max = np.max(waypointsAverge) if waypointsAverge else 0.0
+                    waypoints_max = np.max(waypointsAverge) if waypointsAverge else 0.0
+                    waypoints_min = np.min(waypointsAverge) if waypointsAverge else 0.0
 
-                    self.logger.record("episode/waypoints_reached_max", waypopints_max)
+                    self.logger.record("episode/waypoints_reached_max", waypoints_max)
                     self.logger.record("episode/waypoints_reached_mean", waypoints_mean)
+                    self.logger.record("episode/waypoints_reached_min", waypoints_min)
                     self.logger.record("episode/waypoints_reached_std", waypoints_std)
 
                     self.logger.record("episode/rate_plant_collisions", collisions_mean)

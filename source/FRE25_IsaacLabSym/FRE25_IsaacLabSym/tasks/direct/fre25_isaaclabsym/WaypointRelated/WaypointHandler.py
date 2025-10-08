@@ -19,6 +19,7 @@ class WaypointHandler:
         commandBuffer: CommandBuffer = None,
         pathHandler: PathHandler = None,
         endOfRowPadding: float = 1.0,
+        extraWaypointPadding: float = 0.5,
         waypointsPerRow: int = 8,
     ):
         assert commandBuffer is not None, "commandBuffer must be provided"
@@ -29,6 +30,9 @@ class WaypointHandler:
 
         assert endOfRowPadding >= 0, "endOfRowPadding must be greater than 0"
         self.endOfRowPadding = endOfRowPadding
+
+        assert extraWaypointPadding >= 0, "extraWaypointPadding must be greater than 0"
+        self.extraWaypointPadding = extraWaypointPadding
 
         assert (
             nEnvs > 0
@@ -127,7 +131,7 @@ class WaypointHandler:
 
         # Create in-row waypoints (no padding)
         rowXs = torch.linspace(
-            0, self.pathHandler.pathLength, self.waypointsPerRow, device=device
+            -self.endOfRowPadding, self.pathHandler.pathLength + self.endOfRowPadding, self.waypointsPerRow, device=device
         )
         doubleRowXs = torch.cat((rowXs, torch.flip(rowXs, [0])), dim=0)
 
@@ -194,8 +198,8 @@ class WaypointHandler:
 
         extra_X_values = torch.where(
             is_forward_row,
-            self.pathHandler.pathLength + self.endOfRowPadding,
-            -self.endOfRowPadding
+            self.pathHandler.pathLength + self.extraWaypointPadding,
+            -self.extraWaypointPadding
         )
 
         envWaypointsX_with_extras[is_extra] = extra_X_values
