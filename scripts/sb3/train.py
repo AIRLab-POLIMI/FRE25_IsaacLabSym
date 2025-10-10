@@ -21,6 +21,7 @@ parser.add_argument("--num_envs", type=int, default=None, help="Number of enviro
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
 parser.add_argument("--max_iterations", type=int, default=None, help="RL Policy training iterations.")
+parser.add_argument("--checkpoint", type=str, default=None, help="Path to checkpoint .zip file to resume training from")
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
@@ -145,10 +146,21 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
 
     # directory for logging into
-    run_info = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_root_path = os.path.abspath(os.path.join("logs", "sb3", args_cli.task))
+
+    # Handle checkpoint resumption: create new log directory with lineage info
+    if args_cli.checkpoint is not None:
+        # Extract original run timestamp from checkpoint path
+        checkpoint_path = Path(args_cli.checkpoint)
+        original_run = checkpoint_path.parent.name
+        run_info = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_resumed_from_{original_run}"
+        print(f"[INFO] 🔄 Resuming training from checkpoint: {args_cli.checkpoint}")
+        print(f"[INFO] 📁 Creating new log directory for resumed run")
+    else:
+        run_info = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
     print(f"[INFO] Logging experiment in directory: {log_root_path}")
-    print(f"Exact experiment name requested from command line: {run_info}")
+    print(f"[INFO] Experiment run name: {run_info}")
     log_dir = os.path.join(log_root_path, run_info)
     # dump the configuration into log-directory
     dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)
@@ -202,15 +214,76 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             clip_reward=np.inf,
         )
 
+        # If resuming from checkpoint, try to load VecNormalize statistics
+        if args_cli.checkpoint is not None:
+            checkpoint_base: str = args_cli.checkpoint.replace(".zip", "")
+            # CheckpointCallback saves VecNormalize as: <checkpoint_path_without_modelName>/model_vecnormalize_{steps}_steps.pkl
+            modelPosition = checkpoint_base.rfind("model")
+            vecnorm_path = f"{checkpoint_base[:modelPosition]}model_vecnormalize_{checkpoint_base[modelPosition+6:]}.pkl"
+
+            if os.path.exists(vecnorm_path):
+                print(f"[INFO] 📊 Loading VecNormalize statistics from: {vecnorm_path}")
+                env = VecNormalize.load(vecnorm_path, env)
+                env.training = True  # Re-enable training mode
+                env.norm_reward = "normalize_value" in agent_cfg  # Restore reward normalization setting
+                print(f"[INFO] ✅ VecNormalize statistics loaded successfully")
+            else:
+                print(f"[WARN] ⚠️  VecNormalize statistics not found at: {vecnorm_path}")
+                print(f"[INFO] 🔄 Running estimation trials to initialize normalization parameters...")
+
+                # Run episodes to collect normalization statistics
+                n_estimation_steps = 1000  # ~10 episodes worth for typical env
+                print(f"[INFO]    Collecting {n_estimation_steps} random steps for statistics...")
+                obs = env.reset()
+
+                for step in range(n_estimation_steps):
+                    # Sample random actions to explore state space
+                    action = np.array([env.action_space.sample() for _ in range(env.num_envs)])
+                    obs, reward, done, info = env.step(action)
+
+                    # Progress indicator every 200 steps
+                    if (step + 1) % 200 == 0:
+                        print(f"[INFO]       Progress: {step + 1}/{n_estimation_steps} steps")
+
+                print(f"[INFO] ✅ Normalization parameters estimated from {n_estimation_steps} steps")
+                # Access VecNormalize statistics (env is VecNormalize wrapper)
+                if hasattr(env, 'obs_rms') and env.obs_rms is not None:
+                    print(f"[INFO]    Obs mean (first 5): {env.obs_rms.mean[:5]}")
+                    print(f"[INFO]    Obs std (first 5): {np.sqrt(env.obs_rms.var[:5])}")
+                if hasattr(env, 'ret_rms') and env.ret_rms is not None:
+                    print(f"[INFO]    Reward mean: {env.ret_rms.mean:.4f}, std: {np.sqrt(env.ret_rms.var):.4f}")
+
     # create agent from stable baselines (algorithm selected by Hydra config)
     print(f"[INFO] Creating {algorithm_name} agent with {policy_class}")
     agent = algorithm_class(policy_class, env, verbose=1, **agent_cfg)
+
+    # Load checkpoint if provided (after agent creation, before training)
+    if args_cli.checkpoint is not None:
+        print(f"[INFO] 🔄 Loading model weights and optimizer state from checkpoint...")
+        try:
+            agent.set_parameters(args_cli.checkpoint, exact_match=True)
+            print(f"[INFO] ✅ Model checkpoint loaded successfully")
+            print(f"[INFO]    Policy architecture: {agent.policy}")
+            print(f"[INFO]    Observation space: {agent.observation_space.shape}")
+            print(f"[INFO]    Action space: {agent.action_space}")
+        except Exception as e:
+            print(f"[ERROR] ❌ Failed to load checkpoint: {e}")
+            print(f"[ERROR]    This may indicate incompatible observation/action spaces")
+            print(f"[ERROR]    or a corrupted checkpoint file")
+            raise
+
     # configure the logger
     new_logger = configure(log_dir, ["stdout", "tensorboard"])
     agent.set_logger(new_logger)
 
     # callbacks for agent
-    checkpoint_callback = CheckpointCallback(save_freq=1000, save_path=log_dir, name_prefix="model", verbose=2)
+    checkpoint_callback = CheckpointCallback(
+        save_freq=1000,
+        save_path=log_dir,
+        name_prefix="model",
+        save_vecnormalize=True,  # Save VecNormalize statistics with each checkpoint
+        verbose=2
+    )
     enhanced_logging = EnhancedLoggingCallback(verbose=1)
     progress_callback = ProgressCallback(check_freq=1000, verbose=1)
 
