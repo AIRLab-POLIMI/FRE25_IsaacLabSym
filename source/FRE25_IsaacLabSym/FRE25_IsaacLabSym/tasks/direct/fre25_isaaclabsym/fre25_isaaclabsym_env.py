@@ -285,7 +285,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Agent-controlled command buffer stepping via step_command action
         # Extract step_command action (binary: 0 or 1)
-        step_command_action = self.actions[:, 2] * 0
+        step_command_action = self.actions[:, 2]
         step_command = (step_command_action > 0.5).bool()  # Convert to boolean
 
         # Rising edge detection: step only when transitioning from 0 → 1
@@ -477,7 +477,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Penalty for performing a command step
         # This encourages the agent to be selective about when to advance the command buffer
-        commandStepPenalty = -10 * self.command_step_buffer.float()
+        commandStepPenalty = -0.5 * self.command_step_buffer.float()
 
         # Reset command step buffer after computing the reward
         # This is done here (not in _apply_action) because _apply_action is called
