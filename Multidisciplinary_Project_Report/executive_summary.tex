@@ -92,18 +92,16 @@
 
 % Insert here the info that will be displayed into your Title page 
 % -> title of your work
-\renewcommand{\title}{Title of the thesis}
+\renewcommand{\title}{4WIS4WID mobile robot autonomous navigation in agricultural setting using End2End Reinforcement Learning}
 % -> author name and surname
-\renewcommand{\author}{Name Surname}
-% -> MSc course
-\newcommand{\course}{Xxxxxxxxxxxx Engineering - Ingegneria Xxxxxxxxxxxx}
+\renewcommand{\author}{Paolo Ginefra}
 % -> advisor name and surname
-\newcommand{\advisor}{Prof. Name Surname}
+\newcommand{\advisor}{Prof. Marcello Restelli}
 % IF AND ONLY IF you need to modify the co-supervisors you also have to modify the file Configuration_files/title_page.tex (ONLY where it is marked)
 \newcommand{\firstcoadvisor}{Name Surname} % insert if any otherwise comment
 %\newcommand{\secondcoadvisor}{Name Surname} % insert if any otherwise comment
 % -> academic year
-\newcommand{\YEAR}{20XX-20XX}
+\newcommand{\YEAR}{2024-2025}
 
 %-------------------------------------------------------------------------
 %	BEGIN OF YOUR DOCUMENT
@@ -117,6 +115,7 @@
 % This file creates the Title Page of the document
 \input{Configuration_files/title_page}
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%     THESIS MAIN TEXT     %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -127,12 +126,62 @@
 \section{Introduction}
 \label{sec:introduction}
 
-This document is intended to be both an example of the Polimi \LaTeX{} template for the Executive Summary
-of your thesis, as well as a short introduction to its use.
+This project is meant to be an experiment: \textbf{can task 1 of the Field Robot Event 25 be solved using RockerBot with an End2End Reinforcement Learning approach?} 
 
-The Executive Summary is required only
-if the thesis has been assigned to a reviewer (\textit{controrelatore})
-for an independent evaluation of its quality, scientific/technical relevance and original contribution.
+Secondly, this was the author's first real-world application of the reinforcement learning framework, and thus, gaining insight into the process itself was another major objective, beyond simply completing the task. This is reflected in the numerous mistakes made during development, which are mostly summarised in [].
+
+Lastly, this project is still far from its original goal due to major unforeseen technical challenges that consumed a big portion of the time budget. Despite this, 
+
+\section{The Task}
+\label{sec:task}
+
+\subsection{Field Robot Event 2025}
+The Field Robot Event (FRE) is an international competition where university teams design, build, and test autonomous agricultural robots. The event challenges the robots to perform realistic farming tasks such as navigating crop rows, recognising plants and obstacles, detecting weeds, and mapping fields. It aims to promote innovation in agricultural robotics by providing students with practical experience in robotics, AI, and engineering applied to sustainable farming. The competition includes several tasks testing precision, navigation, object recognition, and a freestyle challenge showcasing novel capabilities.
+To make the competition more challenging, each robot \textbf{cannot use any form of satellite-based positioning (GPS, ...)}.
+The 2025 edition was held in Milan, Italy, running from June 9 to 12.
+
+\subsection{FRE25 Task 1 - Autonomous Navigation}
+Among the 5 tasks of the competition, the first has been selected as the most suitable to be solved with Reinforcement Learning. That is because it is both the least structured one (other tasks involve object recognition and some form of counting) and the one more closely related to control (something in which RL typically excels).
+
+The Task takes place in a cultivated field, among rows of small corn plants, each with a height of approximately 40/45 cm. Each row is approximately 20 m long, and it is about 75 cm apart from the others. The rows are slightly curved, but they all have roughly the same shape. The plants are evenly spaced along the rows, but sometimes they can be missing.
+
+The robot starts in one of the corners of the field, and it needs to navigate the rows alternating between going forward and backwards. At the beginning of the task, a sequence of instructions is provided to the robot. Each instruction $i \in S := \{1,2\} \times \{L, R\}$ is a tuple that express what to do at the end of a row. It specifies how many rows to skip and the direction of the turn. The direction assumes that the robot faces the end of the row. The sequence of instructions $I \in \bigcup_{i=1}^{\infty}S^i$ has no specified length. The layout of the task can be found displayed in Figure \ref{fig:task1}.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]{Multidisciplinary_Project_Report//Images/Task1Schema.png}
+    \caption{A diagram displaying the configuration of Task 1}
+    \label{fig:task1}
+\end{figure}
+
+\subsection{Rockerbot}
+\label{sec:rockerbot}
+
+The robot developed by Politecnico di Milano for the Field Robot Event is called Rockerbot. It was upgraded to its current form for the 2024 edition, and it remained mostly unchanged for the 2025 one. A picture of Rockerbot in the crop field of Task 1 of the FRE24 can be found in Figure \ref{fig:rockerbot}.
+
+Rockerbot is a mobile robot with 4 driving wheels. What makes this robot unique is the fact that each wheel can rotate on its zenithal axis, and each yaw can be controlled independently. This gives rise to the \textbf{4 Wheels Independent Steering 4 Wheels Independent Drive (4WIS4WID) kinematic \cite{4WIS4WID}}.
+
+Rockerbot is equipped with two encoders per wheel: a position encoder for the yaw and a velocity encoder for the angular velocity along the spinning axis. Furthermore, it features two planar LIDARs, one located at the front and one at the rear, with the plane of perception parallel to the ground. The encoders and the LIDARs are the only means of perception available.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{Rockerbot.png}
+    \caption{A photo of Rockerbot in the field of Task 1 of the FRE 24}
+    \label{fig:rockerbot}
+\end{figure}
+
+\section{Traditional Solution}
+
+
+\section{Reinforcement Learning Problem Formulation}
+
+\section{Reinforcement Learning Proposed Solution}
+
+\section{Simulation}
+
+\section{Results}
+
+\section{Conclusion}
 
 \section{Guidelines}
 \label{sec:guidelines}
