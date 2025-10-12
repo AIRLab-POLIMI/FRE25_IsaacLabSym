@@ -165,13 +165,84 @@ Rockerbot is equipped with two encoders per wheel: a position encoder for the ya
 
 \begin{figure}
     \centering
-    \includegraphics[width=1\linewidth]{Rockerbot.png}
+    \includegraphics[width=1\linewidth]{Multidisciplinary_Project_Report/Images/Rockerbot.png}
     \caption{A photo of Rockerbot in the field of Task 1 of the FRE 24}
     \label{fig:rockerbot}
 \end{figure}
 
-\section{Traditional Solution}
+\section{The 4WIS4WID kinematic}
 
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{Multidisciplinary_Project_Report/Images/4WISskematic.png}
+    \caption{The schematic of the 4WIS4WID kinematic taken from \cite{4WISschematic}}
+    \label{fig:4WIS}
+\end{figure}
+
+This peculiar kinematic is really flexible, and it theoretically allows the robot to achieve all 3 of its planar degrees of freedom. All the following notation is depicted in Figure \ref{fig:4WIS} and it is in line with \cite{4WIS4WID} and \cite{4WISschematic}.
+
+The robot coordinate frame $\{X_A, Y_A\}$ is attached to the robot's center of mass (CoM), which moves with a linear velocity $\mathbf{v}_A = [v_{xA}, v_{yA}]^T$ and an angular velocity $\omega_A$. 
+Each wheel $i \in \{1, 2, 3, 4\}$ has a steering angle $\delta_i$ and linear velocity $\vec{v}_i = [v_{xi}, v_{yi}]^T$ expressed in the vehicle frame. 
+The front and rear axles are separated by a wheelbase of $L_f + L_r$, while the track width is $W$. 
+The world coordinate frame $\{X_W, Y_W\}$ is fixed to the ground, and $\theta_A$ denotes the vehicle's heading angle with respect to the global $X_W$ axis. 
+The front wheels (1, 2) and rear wheels (3, 4) can each steer independently, allowing omnidirectional motion.
+
+Unfortunately, Rockerbot imposes some constraints:
+\begin{itemize}
+    \item Due to cable management, each wheel can only rotate 180°: 
+    $$
+    -\pi/2 \leq \delta_i \leq \pi/2 \quad \forall i \in \{1, \cdots, 4\}
+    $$
+    \item Due to physical limitations of the motors, each wheel can reach a limited velocity and a limited zenithal angular velocity:
+    $$
+    |\vec{v}_i| \leq v_{max} \quad \forall i \in \{1, \cdots, 4\}
+    $$
+    $$
+    \dot{\delta}_i \leq \dot{\delta}_{max} \quad \forall i \in \{1, \cdots, 4\}
+    $$
+\end{itemize}
+
+These constraints, especially the first one, heavily restrict the feasible trajectories in the $C = \{[v_{xA}, v_{yA}, \omega_A]^T|v_{xA}, v_{yA}, \omega_A \in \mathbb{R}\}$ control space because they introduce many discontinuities.
+
+Controlling the robot in the $C$ space will be referred to as \textbf{Full Rigid Body Kinematic (FRBK)}. That's because it harnesses all the degrees of freedom left after a rigid body assumption.
+
+A 4WIS4WID robot control can be further constrained to obtain many more kinematics:
+\begin{itemize}
+    \item \textbf{Double Ackermann (2DoF)} - the robot must always be oriented as its velocity vector:
+    $$
+    v_{yA} = 0
+    $$
+
+    \item \textbf{Crab (2DoF)} - the robot can only translate:
+    $$
+    \omega_{A} = 0
+    $$
+
+    \item \textbf{Pivot (1DoF)} - the robot can only rotate in place:
+    $$
+    v_{xA} = v_{yA} = 0
+    $$
+\end{itemize}
+
+A partial order $\leq$ between kinematics can be constructed as follows:
+
+Let $A$ and $B$ be two kinematics, than $A \leq B$ i.f.f. all the robot's poses $[x_a, y_a, \theta_a, \delta_1, v_1, \cdots, \delta_4,v_4]^T$ reachable using $A$ can be reached using $B$. A diagram showing how the kinematics are ordered can be found in Figure \ref{fig:poset}.
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=1\linewidth]{Multidisciplinary_Project_Report/Images/poset.png}
+    \caption{A diagram showing the "$\leq$" ordering of kinematics. If two kinematics $A$ and $B$ are connected by an arrow pointing at $B$, then $B \leq A$"}
+    \label{fig:poset}
+\end{figure*}
+
+\section{Traditional Solution}
+FRE's Task 1 is typically addressed using a more traditional approach, following the Sense Plan Act paradigm. of Probabilistic Robotics. More in detail, one can follow 2 strategies:
+\begin{itemize}
+    \item \textbf{SLAM based}: Using Simultaneous Localisation and Mapping algorithms \cite{DurrantWhyte2006SimultaneousLA} \cite{ProbabilisticRobotics}, one can use the standard navigation pipeline similar to the one implemented in the ROS package Nav2 \cite{nav2}.
+    \item \textbf{SLAMless}: due to hardware limitations, SLAM might not be feasible. In that case, new, simpler custom solutions must be implemented. This was the route taken by the Politecnico's team for both FRE24 and FRE25. The solution splits the problem into three parts. \textbf{In row Navigation} is performed by extracting the relative row direction from the LIDAR scans using Computer Vision techniques, which is then followed by a PID controller. \textbf{End of Row Detection} is based on counting heuristics, while the \textbf{Turning} is performed in open-loop, counting the skipped rows using heuristics. 
+\end{itemize}
+
+\section{Project Plan}
 
 \section{Reinforcement Learning Problem Formulation}
 
