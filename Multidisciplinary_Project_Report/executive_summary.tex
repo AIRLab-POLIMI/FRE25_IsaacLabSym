@@ -92,7 +92,7 @@
 
 % Insert here the info that will be displayed into your Title page 
 % -> title of your work
-\renewcommand{\title}{4WIS4WID mobile robot autonomous navigation in agricultural setting using End2End Reinforcement Learning}
+\renewcommand{\title}{4WIS4WID mobile robot autonomous navigation in agricultural setting using End-to-End Reinforcement Learning}
 % -> author name and surname
 \renewcommand{\author}{Paolo Ginefra}
 % -> advisor name and surname
@@ -126,7 +126,7 @@
 \section{Introduction}
 \label{sec:introduction}
 
-This project is meant to be an experiment: \textbf{can task 1 of the Field Robot Event 25 be solved using RockerBot with an End2End Reinforcement Learning approach?} 
+This project is meant to be an experiment: \textbf{can task 1 of the Field Robot Event 25 be solved using RockerBot with an End-to-End Reinforcement Learning approach?} 
 
 Secondly, this was the author's first real-world application of the reinforcement learning framework, and thus, gaining insight into the process itself was another major objective, beyond simply completing the task. This is reflected in the numerous mistakes made during development, which are mostly summarised in [].
 
@@ -141,11 +141,12 @@ To make the competition more challenging, each robot \textbf{cannot use any form
 The 2025 edition was held in Milan, Italy, running from June 9 to 12.
 
 \subsection{FRE25 Task 1 - Autonomous Navigation}
+\label{subsec:task1}
 Among the 5 tasks of the competition, the first has been selected as the most suitable to be solved with Reinforcement Learning. That is because it is both the least structured one (other tasks involve object recognition and some form of counting) and the one more closely related to control (something in which RL typically excels).
 
 The Task takes place in a cultivated field, among rows of small corn plants, each with a height of approximately 40/45 cm. Each row is approximately 20 m long, and it is about 75 cm apart from the others. The rows are slightly curved, but they all have roughly the same shape. The plants are evenly spaced along the rows, but sometimes they can be missing.
 
-The robot starts in one of the corners of the field, and it needs to navigate the rows alternating between going forward and backwards. At the beginning of the task, a sequence of instructions is provided to the robot. Each instruction $i \in S := \{1,2\} \times \{L, R\}$ is a tuple that express what to do at the end of a row. It specifies how many rows to skip and the direction of the turn. The direction assumes that the robot faces the end of the row. The sequence of instructions $I \in \bigcup_{i=1}^{\infty}S^i$ has no specified length. The layout of the task can be found displayed in Figure \ref{fig:task1}.
+The robot starts in one of the corners of the field, and it needs to navigate the rows alternating between going forward and backwards. At the beginning of the task, a sequence of instructions is provided to the robot. Each instruction $i \in S_{com} = \{1,2\} \times \{L, R\}$ is a tuple that express what to do at the end of a row. It specifies how many rows to skip and the direction of the turn. The direction assumes that the robot faces the end of the row. The sequence of instructions $I \in \bigcup_{i=1}^{\infty}S_{com}^i$ has no specified length. The layout of the task can be found displayed in Figure \ref{fig:task1}.
 
 \begin{figure}
     \centering
@@ -243,12 +244,98 @@ FRE's Task 1 is typically addressed using a more traditional approach, following
 \end{itemize}
 
 \section{Project Plan}
+The ultimate goal of this project is to determine how close to a competition-ready solution can be achieved using End-to-End Reinforcement Learning. This means that the agent has to be responsible for the totality of the strategy, taking only the sensor's readings as input and directly outputting the controls. If one's goal was to achieve the best competition performance in the least amount of engineering time, an end-to-end approach wouldn't be advisable. Adding inductive bias by integrating already developed solutions (like the row direction extractor of the previous approaches) would massively speed up training and allow for finer developer control.
+Another alternative could have been to develop a solution by collecting human demonstrations directly in the field and train a policy using imitation learning \cite{ImitationLearning}. 
+
+The ambitious goal of this project could not be tackled all at once; thus, it has been partitioned into the following subgoals:
+\begin{enumerate}
+    \item Building a simulation of FRE25 task 1
+    \item Develop an RL policy in simulation
+    \item Address the Sim2Real gap and deploy the policy on Rockerbot
+\end{enumerate}
+
+The very nature of this project could not allow for a linear progression between stages, since the experience and requirements of a future phase inevitably call for modification in a previous one. Unfortunately, due to time constraints, \textbf{this project could not reach the third phase}, and it stopped in the middle of the second one.
+
+\section{Simulation}
+\subsection{Simulator choice}
+For the simulation, Nvidia's Isaac Lab \cite{IsaacLab} has been chosen.
+Isaac Lab is an open-source framework for robotics research that leverages GPU acceleration through its foundation on NVIDIA Isaac Sim. The framework addresses common challenges in robotics research by providing a unified platform for diverse methodologies, including reinforcement learning, imitation learning, and motion planning. Its simulation capabilities utilise PhysX for physics computation and ray-tracing technologies for sensor modelling, aiming to reduce the gap between simulated and real-world robot behaviour. The framework's architecture emphasises modularity and extensibility, including pre-configured robot models and experimental environments that can be adapted to various research needs. Isaac Lab supports integration with multiple learning frameworks and can be deployed across different computational infrastructures, from local workstations to distributed cloud systems.
+Isaac Lab is a powerful tool, but it is still in its developmental stage. This meant that it cannot yet accommodate a large variety of needs. Even though the final performance of the simulation is outstanding, reaching peaks of around \textbf{3000 simulation steps per second}, the development of the simulation consumed around 2/3 of the total time budget.
+
+\subsection{Simulation Landscape}
+The simulation has been developed starting from the actual CAD model of Rockerbot. Each wheel is equipped with its own couple of controllers that follow a mass-spring-damper model. The target yaw and rotational effort can be set for each wheel independently.
+
+The ground is currently modelled by a rigid plane, and each plant is represented by a 3D model.
+
+The strength of Isaac Lab lies in its ability to simulate many environments in parallel. In the simulation, there are $N_e$ environment. Each environment has one robot and $p = r \cdot \rho$ plants, where $r$ is the number of rows and $\rho$ is the number of plants per row.
+
+\subsection{Row generation}
+The shape of the rows is determined by a stochastic process
+\[
+S(t, \Theta_s): [0,1] \to \mathbb{R}^2,
+\]
+whose realizations define continuous curves in the plane.
+
+In the \( i \)-th environment, at the beginning of each episode, 
+the parameters \( \theta_{si} \) are sampled. 
+The corresponding curve \( S(t, \theta_{si}) \) describes 
+all the rows of the \( i \)-th environment for that episode.
+
+The position of the \( j \)-th plant in the \( k \)-th row,
+expressed in the environment reference frame, is given by:
+\begin{align*}
+    t_{ijk} &= \tfrac{j-1}{\rho-1}, \\
+    \varepsilon &\sim \mathcal{N}(\vec{0}, I\sigma_p), \nonumber\\
+    Plant_{ijk} &= S(t_{ijk}, \theta_{si}) + [0, k \Delta_r] + \varepsilon, \nonumber
+\end{align*}
+with \( i \in \{1,\!\dots,\!N_e\} \), 
+\( j \in \{1,\!\dots,\!\rho\} \),
+\( k \in \{1,\!\dots,\!r\} \),
+and \( \Delta_r \in \mathbb{R}^+ \) the distance between rows.
+
+In the simulator, \( S \) is implemented by interpolating a set of 
+points with a cubic spline~\cite{Spline}. 
+The control points are the parameters of the process. 
+Let \( l_r \) be the row length and \( c_r \in \mathbb{N} \) 
+the number of control points:
+\begin{align*}
+    \Theta &= \big((0, Y_1),\, 
+        (l_r \tfrac{1}{c_r-1}, Y_2),\, \dots,\,
+        (l_r, Y_{c_r})\big), \nonumber\\
+    \vec{Y} &\sim \mathcal{N}(\vec{0}, I\sigma_c), \nonumber\\
+\end{align*}
+then 
+$$
+S(t, \Theta) = \text{spline}(t, \Theta)
+$$
+
+This implementation choice has been made for simplicity's sake, but future versions might implement Gaussian Processes for finer control on the rows' shape.
+
+\subsection{Command Buffer}
+The task requires the robot to follow certain commands as explained in Section \ref{subsec:task1}. In the i-th environment, at the beginning of each episode, the instruction sequence $I_i$ of fixed length $l_c \in \mathbb{N}$ is generated randomly and uniformly, and it is stored in a queue $Q(q):\{0,1\} \to S_{com}$. The queue always returns the current command and moves to the next every rising front of its control signal $q$. When the queue has reached its last command, it ignores the control.
+
+\subsection{Waypoints}
+The simulation has a waypoint system that traces the path the robot should follow. In the i-th environment, after the path parameters, $\theta_{si}$ are sampled and the command sequence $I_i$ is generated, the waypoints are set up to have $\rho_w$ evenly spaced waypoints in the middle of the relevant rows and one waypoint per row skipped during turns. The in-row waypoints start and end slightly outside the rows on the x direction by a padding of $p_{in}$. The turning waypoints have the same y coordinate as the last plant on the relevant side of the row and an x that is $p_{t}$ away in the relevant direction. The waypoints are arranged in a snake-like pattern.
+The waypoints are ordered, and they can only be reached in the right sequence. For a waypoint to be reached, the robot must be at a distance of less than $\varepsilon_w$ and it must be the first unreached waypoint of the order. The only reachable waypoint at a time will be referenced as the next waypoint.
+
+\subsection{LIDARs}
+Isaac Lab has integrated simulated LIDARs based on the ray tracing capabilities of Nvidia's GPUs. Unfortunately, in the current version 
+of Isaac Lab, this feature is available only for sensing static objects. Since the plants need to change position at each environment reset, they are intrinsically dynamic. This was one of the major setbacks of the project because it required a \textbf{from-scratch implementation of planar LIDARs}. Early attempts at ray tracing showed unsatisfactory performance, which led to the usage of ray marching techniques \cite{Raymarching}. This algorithm allows to find the point of intersection of a ray and a shape very efficiently.  In 2D Raymarching, shapes are described by a Signed Distance Field $sdf(\vec{x}):\mathbb{R}^2\to\mathbb{R}$ that describes the signed distance of a generic point $\vec{x} \in \mathbb{R}^2$, where a negative distance means that $\vec{x}$ is inside the shape. These functions are then used in the collision finding algorithm, as given a scene described by $\{sdf_i|i\in{1, \cdots, k}\}$ and any point $\vec{\hat{x}}$ which is outside all the shapes, surely all the points in $A_{\vec{\hat{x}}} = \{\vec{x}\in\mathbb{R}^2: ||\vec{\hat{x}}-\vec{x}||_2 \leq \min_{i}sdf_i(\vec{\hat{x}}) \}$ will be outside all the shapes. Given a ray described by a direction $\vec{d}\in\mathbb{R}^2, ||\vec{d}||_2 = 1$, and a starting point $\vec{x}^{(0)} \in \mathbb{R}^2$, the algorithm keep iterating $\vec{x}^{(n)} = \vec{x}^{(n-1)} + \vec{d} \min_{i}sdf_i(\vec{x}^{(n-1)})$ until either the maximum number of iterations $n_{lidar}$ is reached or $\min_{i}sdf_i(\vec{x}^{(n)})<\varepsilon_{lidar}$. This procedure can be used to simulate a LIDAR by simply repeating the procedure for each ray, and since each ray is independent, this can easily be parallelised. For the plants, a simple circular signed distance function has been implemented, where given a plant position $\vec{p} \in \mathbb{R}^2$ and a plant radius $r_{plant} \in \mathbb{R}^+$, $sdf_p(\vec{x})=||\vec{x} - \vec{p} ||_2 - r_{plant}$. This model is quite simplistic, but with the required smoothing and anomaly detection can be quite faithful to the actual Rockerbot's LIDARs. Another approximation is that in the simulation, the robot has only one 360° unobstructed LIDAR instead of the two of the actual robot, but once again, with the due pre-processing, the simulated configuration can be a faithful approximation.
+
+\subsection{Termination Conditions}
+For each environment, the episode terminates when at least one of the following conditions is met:
+\begin{itemize}
+    \item \textbf{Plant collision}: the robot collides with a plant
+    \item \textbf{Out of bound}: the distance between the robot and the next waypoint is greater than the waypoint reached tolerance $\varepsilon_w$ plus the distance between the next and the last (meaning the one before the next) waypoint.
+    \item \textbf{Time out}: the episode has exhusted the time budget $t_{sim}$
+    \item \textbf{Completion}: The robot has reached all the waypoints
+\end{itemize}
+
 
 \section{Reinforcement Learning Problem Formulation}
 
 \section{Reinforcement Learning Proposed Solution}
 
-\section{Simulation}
 
 \section{Results}
 
