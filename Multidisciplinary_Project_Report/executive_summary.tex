@@ -325,7 +325,7 @@ The waypoints are ordered, and they can only be reached in the right sequence. F
 
 \subsection{LIDARs}
 Isaac Lab has integrated simulated LIDARs based on the ray tracing capabilities of Nvidia's GPUs. Unfortunately, in the current version 
-of Isaac Lab, this feature is available only for sensing static objects. Since the plants need to change position at each environment reset, they are intrinsically dynamic. This was one of the major setbacks of the project because it required a \textbf{from-scratch implementation of planar LIDARs}. Early attempts at ray tracing showed unsatisfactory performance, which led to the usage of ray marching techniques \cite{Raymarching}. This algorithm allows to find the point of intersection of a ray and a shape very efficiently.  In 2D Raymarching, shapes are described by a Signed Distance Field $sdf(\vec{x}):\mathbb{R}^2\to\mathbb{R}$ that describes the signed distance of a generic point $\vec{x} \in \mathbb{R}^2$, where a negative distance means that $\vec{x}$ is inside the shape. These functions are then used in the collision finding algorithm, as given a scene described by $\{sdf_i|i\in{1, \cdots, k}\}$ and any point $\vec{\hat{x}}$ which is outside all the shapes, surely all the points in $A_{\vec{\hat{x}}} = \{\vec{x}\in\mathbb{R}^2: ||\vec{\hat{x}}-\vec{x}||_2 \leq \min_{i}sdf_i(\vec{\hat{x}}) \}$ will be outside all the shapes. Given a ray described by a direction $\vec{d}\in\mathbb{R}^2, ||\vec{d}||_2 = 1$, and a starting point $\vec{x}^{(0)} \in \mathbb{R}^2$, the algorithm keep iterating $\vec{x}^{(n)} = \vec{x}^{(n-1)} + \vec{d} \min_{i}sdf_i(\vec{x}^{(n-1)})$ until either the maximum number of iterations $n_{lidar}$ is reached or $\min_{i}sdf_i(\vec{x}^{(n)})<\varepsilon_{lidar}$. This procedure can be used to simulate a LIDAR by simply repeating the procedure for each ray, and since each ray is independent, this can easily be parallelised. $n_{rays}$ rays are simulated for each LIDAR. For the plants, a simple circular signed distance function has been implemented, where given a plant position $\vec{p} \in \mathbb{R}^2$ and a plant radius $r_{plant} \in \mathbb{R}^+$, $sdf_p(\vec{x})=||\vec{x} - \vec{p} ||_2 - r_{plant}$. This model is quite simplistic, but with the required smoothing and anomaly detection can be quite faithful to the actual Rockerbot's LIDARs. Another approximation is that in the simulation, the robot has only one 360° unobstructed LIDAR instead of the two of the actual robot, but once again, with the due pre-processing, the simulated configuration can be a faithful approximation.
+of Isaac Lab, this feature is available only for sensing static objects. Since the plants need to change position at each environment reset, they are intrinsically dynamic. This was one of the major setbacks of the project because it required a \textbf{from-scratch implementation of planar LIDARs}. Early attempts at ray tracing showed unsatisfactory performance, which led to the usage of ray marching techniques \cite{Raymarching}. This algorithm allows to find the point of intersection of a ray and a shape very efficiently.  In 2D Raymarching, shapes are described by a Signed Distance Field $sdf(\vec{x}):\mathbb{R}^2\to\mathbb{R}$ that describes the signed distance of a generic point $\vec{x} \in \mathbb{R}^2$, where a negative distance means that $\vec{x}$ is inside the shape. These functions are then used in the collision finding algorithm, as given a scene described by $\{sdf_i|i\in{1, \cdots, k}\}$ and any point $\vec{\hat{x}}$ which is outside all the shapes, surely all the points in $A_{\vec{\hat{x}}} = \{\vec{x}\in\mathbb{R}^2: ||\vec{\hat{x}}-\vec{x}||_2 \leq \min_{i}sdf_i(\vec{\hat{x}}) \}$ will be outside all the shapes. Given a ray described by a direction $\vec{d}\in\mathbb{R}^2, ||\vec{d}||_2 = 1$, and a starting point $\vec{x}^{(0)} \in \mathbb{R}^2$, the algorithm keep iterating $\vec{x}^{(n)} = \vec{x}^{(n-1)} + \vec{d} \min_{i}sdf_i(\vec{x}^{(n-1)})$ until either the maximum number of iterations $n_{lidar}$ is reached,  $\min_{i}sdf_i(\vec{x}^{(n)})<\varepsilon_{lidar}$ or $||x^{(n)} - x^{(0)}||_2 > d_{lmax}$. This procedure can be used to simulate a LIDAR by simply repeating the procedure for each ray, and since each ray is independent, this can easily be parallelised. $n_{rays}$ rays are simulated for each LIDAR. For the plants, a simple circular signed distance function has been implemented, where given a plant position $\vec{p} \in \mathbb{R}^2$ and a plant radius $r_{plant} \in \mathbb{R}^+$, $sdf_p(\vec{x})=||\vec{x} - \vec{p} ||_2 - r_{plant}$. This model is quite simplistic, but with the required smoothing and anomaly detection can be quite faithful to the actual Rockerbot's LIDARs. Another approximation is that in the simulation, the robot has only one 360° unobstructed LIDAR instead of the two of the actual robot, but once again, with the due pre-processing, the simulated configuration can be a faithful approximation.
 
 \subsection{Termination Conditions}
 For each environment, the episode terminates when at least one of the following conditions is met:
@@ -335,9 +335,6 @@ For each environment, the episode terminates when at least one of the following 
     \item \textbf{Time out}: the episode has exhusted the time budget $t_{sim}$
     \item \textbf{Completion}: The robot has reached all the waypoints
 \end{itemize}
-
-\subsection{Current parameters}
-The current parameters of the simulation can be found in the repo.
 
 \section{Reinforcement Learning Problem Formulation}
 FRE25 task 1 can be framed as a continuous state, observations, and actions \textbf{Partially Observable Markov Decision Process (POMDP) \cite{POMDPS}}. What follows is a possible general formulation of the problem as a POMDP. In the next section, all the tweaks necessary to achieve a working solution are discussed in greater detail. 
@@ -387,6 +384,9 @@ The constraints of the crab kinematic implies $\delta = \delta_i, i\in\{1, \cdot
     \item It makes it easier to enforce physical constraints like $\dot{\delta}_{max}$ 
 \end{itemize}
 
+\subsection{Encoders}
+With a Crab kinematic a single current yaw $\delta = \frac{1}{4}\sum_{i=1}^{4}\delta_i$ is fed to the policy as the current steering. 
+
 \subsection{Accumulator-Based Memory Model}
 Since the Markov assumption is violated, the policy needs to retain information about its previous states and actions. The standard solution is to implement a policy model with memory (RNN, LSTM, GRU, $\cdots$). These architectures are notoriously slow to train due to their intrinsic sequential nature and thus not very parallelizable. This is in stark contrast to the massively parallel implementation of Isaac Lab, and it soon became apparent that these kinds of policies are not feasible in the current setup.
 
@@ -417,7 +417,156 @@ Only rewarding the model with a +1 whenever it reaches a waypoint resulted as to
 The actual coefficients of the combination can be found in the code repository.
 
 \section{Results}
-The current state of the project allows for a complete solution of phase 4, which can be found in the repo. To achieve the current solution, some experimentation was required: \textbf{339 training runs} have been performed for a total of \textbf{487.29 hours of training time}. The best configuration of hyperparameters found so far can now be trained from scratch in about 1 hour, and it completes the first row for the first time after about 2 minutes of training. Despite being extremely far from the actual end-to-end physical deployment of an RL policy, these first results show a promising trend. In the current state of the project, the most valuable product of this project is not yet the control policy, but the long list of mistakes and lessons learned on how to effectively interact with the Reinforcement Learning framework. What follows is a list of qualitative heuristics learned during development in no particular order:
+
+\subsection{Final Configuration}
+After 339 training runs totalling 487.29 hours of training experimentation, the following configuration represents the current best-performing setup for Task 1 navigation at curriculum level 4.
+
+\subsubsection{Environment Parameters}
+The simulation environment parameters are listed in Table \ref{tab:sim_params}.
+
+\begin{table}[h]
+\centering
+\caption{Simulation Environment Parameters}
+\label{tab:sim_params}
+\small
+\begin{tabular}{|l|r|l|}
+\hline
+\textbf{Parameter} & \textbf{Value} & \textbf{Unit} \\
+\hline
+\multicolumn{3}{|c|}{\textit{Timing}} \\
+\hline
+Decimation & 4 & - \\
+Simulation dt & 1/120 & s \\
+Episode length ($t_{sim}$) & 300.0 & s \\
+\hline
+\multicolumn{3}{|c|}{\textit{Command Buffer}} \\
+\hline
+Commands length & 8 & - \\
+Max rows & 1 & - \\
+\hline
+\multicolumn{3}{|c|}{\textit{Path Generation}} \\
+\hline
+Row spacing ($\Delta_r$) & 1.2 & m \\
+Control points ($c_r$) & 10 & - \\
+Path length ($l_r$) & 3.0 & m \\
+Control point noise std ($\sigma_c$) & 0.15 & m \\
+Plant noise std ($\sigma_p$) & 0.03 & m \\
+\hline
+\multicolumn{3}{|c|}{\textit{Waypoints}} \\
+\hline
+Waypoints per row ($\rho_w$) & 3 & - \\
+Reached tolerance ($\varepsilon_w$) & 0.35 & m \\
+End of row  ($p_{in}$) & 0.4 & m \\
+Extra waypoint padding ($p_t$) & 0.8 & m \\
+\hline
+\multicolumn{3}{|c|}{\textit{Plants}} \\
+\hline
+Plants per path ($\rho$) & 10 & - \\
+Plant radius ($r_{plant}$) & 0.22 & m \\
+\hline
+\multicolumn{3}{|c|}{\textit{LiDAR Sensor}} \\
+\hline
+Rays per robot ($n_{rays}$) & 40 & - \\
+Max distance ($d_{lmax}$) & 1.0 & m \\
+Tolerance ($\varepsilon_{lidar}$) & 0.01 & m \\
+Max raymarching steps ($n_{lidar}$) & 100 & - \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Reward Function Parameters}
+The reward function weights are shown in Table \ref{tab:reward_params}.
+
+\begin{table}[h]
+\centering
+\caption{Reward Function Parameters}
+\label{tab:reward_params}
+\small
+\begin{tabular}{|l|r|}
+\hline
+\textbf{Component} & \textbf{Weight} \\
+\hline
+Waypoint reward base & 100.0 \\
+Velocity toward waypoint scale & 0.5 \\
+Timeout penalty & -100.0 \\
+Plant collision penalty & -100.0 \\
+Out of bounds penalty & -100.0 \\
+Command step penalty & 0.0 \\
+Command index penalty scale & -1.0 \\
+Distance penalty scale & 1.0 \\
+Total reward scale & 0.1 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Policy and Training Configuration}
+The PPO algorithm hyperparameters and network architecture are detailed in Table \ref{tab:training_params}.
+
+\begin{table}[h]
+\centering
+\caption{PPO Training Parameters}
+\label{tab:training_params}
+\small
+\begin{tabular}{|l|r|}
+\hline
+\textbf{Parameter} & \textbf{Value} \\
+\hline
+\multicolumn{2}{|c|}{\textit{PPO Hyperparameters}} \\
+\hline
+Learning rate & 2e-4 \\
+Gamma (discount factor) & 0.99 \\
+GAE lambda & 0.95 \\
+Clip range & 0.2 \\
+Entropy coefficient & 0.01 \\
+Value function coefficient & 2.0 \\
+Max gradient norm & 1.0 \\
+\hline
+\multicolumn{2}{|c|}{\textit{Training Setup}} \\
+\hline
+Number of environments ($N_e$) & 128 \\
+Steps per environment & 256 \\
+Batch size & 256 \\
+Number of epochs & 10 \\
+\hline
+\multicolumn{2}{|c|}{\textit{Network Architecture}} \\
+\hline
+Policy network & [256, 128, 64] \\
+Value network & [256, 128, 64] \\
+Activation function & ReLU \\
+\hline
+\multicolumn{2}{|c|}{\textit{Action Space}} \\
+\hline
+Steering action & \{-1, 0, +1\} \\
+Throttle action & \{-1, 0, +1\} \\
+Step command action & \{0, 1\} \\
+Number of Hidden states ($d_h$) & 4 \\
+\hline
+\multicolumn{2}{|c|}{\textit{Observation Space}} \\
+\hline
+Current steering angle & 1 \\
+LiDAR readings & 40 \\
+Command buffer state & 3 \\
+Past control actions & 3 \\
+Hidden accumulators & 4 \\
+\textbf{Total observation dim} & \textbf{51} \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Training Performance}
+The current configuration achieves the following performance metrics:
+\begin{itemize}
+    \item \textbf{Training time from scratch}: Approximately 1 hour
+    \item \textbf{Time to first row completion}: Approximately 2 minutes of training
+    \item \textbf{Total training runs}: 339 runs across all experiments
+    \item \textbf{Total computational time}: 487.29 hours (20.30 days)
+    \item \textbf{Simulation speed}: Up to 3000 steps per second
+\end{itemize}
+
+The training process demonstrated that observation and action space design had greater impact on learning success than hyperparameter tuning. The differential action space combined with the accumulator-based memory model proved essential for achieving stable learning in this partially observable navigation task.
+
+\subsection{Qualitative Lessons}
+In the current state of the project, the most valuable product of this project is not yet the control policy, but the long list of mistakes and lessons learned on how to effectively interact with the Reinforcement Learning framework. What follows is a list of qualitative heuristics learned during development in no particular order:
 \begin{itemize}
     \item \textbf{Hyperparameters are not all you need}: tuning hyperparameters can be helpful but with PPO it becomes secondary. Once in one of the many broad areas of stability of the algorithm, changing the observations, actions and reward has a much greater effect
     \item \textbf{Avoid Partially Observable Software Development}: Once a headless training run is going, the behaviour of the simulation can only be observed through logs. The better the logging tools, the easier it is to gain insight into what is actually happening and the easier it is to spot problems sooner
@@ -562,164 +711,6 @@ Collect and categorize failure modes:
     \item Are failures deterministic or stochastic for the same scenario?
 \end{itemize}
 
-
-\section{Results}
-
-\subsection{Final Configuration}
-After 339 training runs totaling 487.29 hours (20.30 days) of experimentation, the following configuration represents the current best-performing setup for Task 1 navigation at curriculum level 4.
-
-\subsubsection{Environment Parameters}
-The simulation environment parameters are listed in Table \ref{tab:sim_params}.
-
-\begin{table}[h]
-\centering
-\caption{Simulation Environment Parameters}
-\label{tab:sim_params}
-\small
-\begin{tabular}{|l|r|l|}
-\hline
-\textbf{Parameter} & \textbf{Value} & \textbf{Unit} \\
-\hline
-\multicolumn{3}{|c|}{\textit{Timing}} \\
-\hline
-Decimation & 4 & - \\
-Simulation dt & 1/120 & s \\
-Episode length ($t_{sim}$) & 300.0 & s \\
-\hline
-\multicolumn{3}{|c|}{\textit{Command Buffer}} \\
-\hline
-Commands length & 8 & - \\
-Max rows & 1 & - \\
-\hline
-\multicolumn{3}{|c|}{\textit{Path Generation}} \\
-\hline
-Row spacing ($\Delta_r$) & 1.2 & m \\
-Control points ($c_r$) & 10 & - \\
-Path length ($l_r$) & 3.0 & m \\
-Control point noise std ($\sigma_c$) & 0.15 & m \\
-Plant noise std ($\sigma_p$) & 0.03 & m \\
-\hline
-\multicolumn{3}{|c|}{\textit{Waypoints}} \\
-\hline
-Waypoints per row & 3 & - \\
-Reached tolerance ($\varepsilon_w$) & 0.35 & m \\
-Max distance & 1.8 & m \\
-End of row padding & 0.4 & m \\
-Extra waypoint padding & 0.8 & m \\
-\hline
-\multicolumn{3}{|c|}{\textit{Plants}} \\
-\hline
-Plants per path ($\rho$) & 10 & - \\
-Plant radius ($r_{plant}$) & 0.22 & m \\
-\hline
-\multicolumn{3}{|c|}{\textit{LiDAR Sensor}} \\
-\hline
-Rays per robot ($n_{rays}$) & 40 & - \\
-Max distance & 1.0 & m \\
-Tolerance ($\varepsilon_{lidar}$) & 0.01 & m \\
-Max raymarching steps ($n_{lidar}$) & 100 & - \\
-\hline
-\multicolumn{3}{|c|}{\textit{Robot Control}} \\
-\hline
-Wheels effort scale & 15 & - \\
-Steering scale & 2 & deg/step \\
-Steering buffer min & -90 & deg \\
-Steering buffer max & +90 & deg \\
-\hline
-\end{tabular}
-\end{table}
-
-\subsubsection{Reward Function Parameters}
-The reward function weights are shown in Table \ref{tab:reward_params}.
-
-\begin{table}[h]
-\centering
-\caption{Reward Function Parameters}
-\label{tab:reward_params}
-\small
-\begin{tabular}{|l|r|}
-\hline
-\textbf{Component} & \textbf{Weight} \\
-\hline
-Waypoint reward base & 100.0 \\
-Velocity toward waypoint scale & 0.5 \\
-Timeout penalty & -100.0 \\
-Plant collision penalty & -100.0 \\
-Out of bounds penalty & -100.0 \\
-Command step penalty & 0.0 \\
-Command index penalty scale & -1.0 \\
-Distance penalty scale & 1.0 \\
-Distance penalty threshold & 0.1 m \\
-Total reward scale & 0.1 \\
-\hline
-\end{tabular}
-\end{table}
-
-\subsubsection{Policy and Training Configuration}
-The PPO algorithm hyperparameters and network architecture are detailed in Table \ref{tab:training_params}.
-
-\begin{table}[h]
-\centering
-\caption{PPO Training Parameters}
-\label{tab:training_params}
-\small
-\begin{tabular}{|l|r|}
-\hline
-\textbf{Parameter} & \textbf{Value} \\
-\hline
-\multicolumn{2}{|c|}{\textit{PPO Hyperparameters}} \\
-\hline
-Learning rate & 3e-4 \\
-Gamma (discount factor) & 0.99 \\
-GAE lambda & 0.95 \\
-Clip range & 0.2 \\
-Entropy coefficient & 0.01 \\
-Value function coefficient & 0.5 \\
-Max gradient norm & 0.5 \\
-\hline
-\multicolumn{2}{|c|}{\textit{Training Setup}} \\
-\hline
-Number of environments ($N_e$) & 4096 \\
-Steps per environment & 24 \\
-Batch size & 512 \\
-Number of epochs & 8 \\
-Total timesteps & 5M \\
-\hline
-\multicolumn{2}{|c|}{\textit{Network Architecture}} \\
-\hline
-Policy network & [256, 128, 64] \\
-Value network & [256, 128, 64] \\
-Activation function & ReLU \\
-\hline
-\multicolumn{2}{|c|}{\textit{Action Space}} \\
-\hline
-Steering action & \{-1, 0, +1\} \\
-Throttle action & \{-1, 0, +1\} \\
-Step command action & \{0, 1\} \\
-Hidden states & 0 (disabled) \\
-\hline
-\multicolumn{2}{|c|}{\textit{Observation Space}} \\
-\hline
-Current steering angle & 1 \\
-LiDAR readings & 40 \\
-Command buffer state & 3 \\
-Past actions & 3 \\
-\textbf{Total observation dim} & \textbf{47} \\
-\hline
-\end{tabular}
-\end{table}
-
-\subsection{Training Performance}
-The current configuration achieves the following performance metrics:
-\begin{itemize}
-    \item \textbf{Training time from scratch}: Approximately 1 hour
-    \item \textbf{Time to first row completion}: Approximately 2 minutes of training
-    \item \textbf{Total training runs}: 339 runs across all experiments
-    \item \textbf{Total computational time}: 487.29 hours (20.30 days)
-    \item \textbf{Simulation speed}: Up to 3000 steps per second
-\end{itemize}
-
-The training process demonstrated that observation and action space design had greater impact on learning success than hyperparameter tuning. The differential action space combined with the accumulator-based memory model proved essential for achieving stable learning in this partially observable navigation task.
 
 \section{Conclusion}
 
