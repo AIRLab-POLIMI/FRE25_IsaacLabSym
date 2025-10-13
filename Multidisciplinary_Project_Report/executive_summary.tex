@@ -96,7 +96,7 @@
 % -> author name and surname
 \renewcommand{\author}{Paolo Ginefra}
 % -> advisor name and surname
-\newcommand{\advisor}{Prof. Marcello Restelli}
+\newcommand{\advisor}{prof. M. Restelli, prof. S. Mentasti, prof. M. Matteucci}
 % IF AND ONLY IF you need to modify the co-supervisors you also have to modify the file Configuration_files/title_page.tex (ONLY where it is marked)
 \newcommand{\firstcoadvisor}{Name Surname} % insert if any otherwise comment
 %\newcommand{\secondcoadvisor}{Name Surname} % insert if any otherwise comment
@@ -125,12 +125,16 @@
 %-----------------------------------------------------------------------------
 \section{Introduction}
 \label{sec:introduction}
+This project explores a fundamental question in agricultural robotics: can Task 1 of the Field Robot Event 2025 be solved using an end-to-end Reinforcement Learning (RL) approach with the Rockerbot platform? Rather than following the traditional Sense-Plan-Act paradigm employed by most competing teams, this work investigates whether a deep RL policy can learn to navigate autonomously through crop rows by processing raw sensor data and directly outputting control commands.
 
-This project is meant to be an experiment: \textbf{can task 1 of the Field Robot Event 25 be solved using RockerBot with an End-to-End Reinforcement Learning approach?} 
+The motivation for this approach is twofold. First, end-to-end learning has demonstrated remarkable success in various robotic control tasks, potentially offering a more adaptive and generalizable solution compared to hand-crafted algorithms. Second, this project serves as the author's first substantial real-world application of the RL framework, making the learning process itself a primary objective alongside task completion.
 
-Secondly, this was the author's first real-world application of the reinforcement learning framework, and thus, gaining insight into the process itself was another major objective, beyond simply completing the task. This is reflected in the numerous mistakes made during development, which are mostly summarised in [].
+The challenge is particularly compelling due to Rockerbot's unique 4 Wheels Independent Steering 4 Wheels Independent Drive (4WIS4WID) kinematic configuration. This system provides exceptional maneuverability but introduces significant control complexity through motion constraints and kinematic discontinuities. Traditional control approaches must carefully manage these constraints, while an RL agent must discover effective control strategies through exploration.
 
-Lastly, this project is still far from its original goal due to major unforeseen technical challenges that consumed a big portion of the time budget. Despite this, 
+The project follows a structured three-phase plan: developing a high-fidelity simulation environment, training an RL policy in simulation, and bridging the sim-to-real gap for physical deployment. However, substantial technical challenges emerged early in development. Building the simulation environment in Isaac Lab consumed approximately two-thirds of the total time budget, primarily due to the need for custom LIDAR implementation and the framework's developmental limitations. Consequently, the project advanced through only the first phase and partially into the second, stopping at level 4 of the proposed developer curriculum.
+
+Despite not reaching physical deployment, this work yields valuable contributions. The developed simulation framework provides a reusable platform for future agricultural robotics research, and the extensive experimentation process has generated concrete insights into practical RL application. The project demonstrates both the potential and the challenges of applying end-to-end RL to structured agricultural tasks, offering a foundation for continued development toward competition-ready autonomous navigation.
+
 
 \section{The Task}
 \label{sec:task}
@@ -320,7 +324,7 @@ The waypoints are ordered, and they can only be reached in the right sequence. F
 
 \subsection{LIDARs}
 Isaac Lab has integrated simulated LIDARs based on the ray tracing capabilities of Nvidia's GPUs. Unfortunately, in the current version 
-of Isaac Lab, this feature is available only for sensing static objects. Since the plants need to change position at each environment reset, they are intrinsically dynamic. This was one of the major setbacks of the project because it required a \textbf{from-scratch implementation of planar LIDARs}. Early attempts at ray tracing showed unsatisfactory performance, which led to the usage of ray marching techniques \cite{Raymarching}. This algorithm allows to find the point of intersection of a ray and a shape very efficiently.  In 2D Raymarching, shapes are described by a Signed Distance Field $sdf(\vec{x}):\mathbb{R}^2\to\mathbb{R}$ that describes the signed distance of a generic point $\vec{x} \in \mathbb{R}^2$, where a negative distance means that $\vec{x}$ is inside the shape. These functions are then used in the collision finding algorithm, as given a scene described by $\{sdf_i|i\in{1, \cdots, k}\}$ and any point $\vec{\hat{x}}$ which is outside all the shapes, surely all the points in $A_{\vec{\hat{x}}} = \{\vec{x}\in\mathbb{R}^2: ||\vec{\hat{x}}-\vec{x}||_2 \leq \min_{i}sdf_i(\vec{\hat{x}}) \}$ will be outside all the shapes. Given a ray described by a direction $\vec{d}\in\mathbb{R}^2, ||\vec{d}||_2 = 1$, and a starting point $\vec{x}^{(0)} \in \mathbb{R}^2$, the algorithm keep iterating $\vec{x}^{(n)} = \vec{x}^{(n-1)} + \vec{d} \min_{i}sdf_i(\vec{x}^{(n-1)})$ until either the maximum number of iterations $n_{lidar}$ is reached or $\min_{i}sdf_i(\vec{x}^{(n)})<\varepsilon_{lidar}$. This procedure can be used to simulate a LIDAR by simply repeating the procedure for each ray, and since each ray is independent, this can easily be parallelised. For the plants, a simple circular signed distance function has been implemented, where given a plant position $\vec{p} \in \mathbb{R}^2$ and a plant radius $r_{plant} \in \mathbb{R}^+$, $sdf_p(\vec{x})=||\vec{x} - \vec{p} ||_2 - r_{plant}$. This model is quite simplistic, but with the required smoothing and anomaly detection can be quite faithful to the actual Rockerbot's LIDARs. Another approximation is that in the simulation, the robot has only one 360° unobstructed LIDAR instead of the two of the actual robot, but once again, with the due pre-processing, the simulated configuration can be a faithful approximation.
+of Isaac Lab, this feature is available only for sensing static objects. Since the plants need to change position at each environment reset, they are intrinsically dynamic. This was one of the major setbacks of the project because it required a \textbf{from-scratch implementation of planar LIDARs}. Early attempts at ray tracing showed unsatisfactory performance, which led to the usage of ray marching techniques \cite{Raymarching}. This algorithm allows to find the point of intersection of a ray and a shape very efficiently.  In 2D Raymarching, shapes are described by a Signed Distance Field $sdf(\vec{x}):\mathbb{R}^2\to\mathbb{R}$ that describes the signed distance of a generic point $\vec{x} \in \mathbb{R}^2$, where a negative distance means that $\vec{x}$ is inside the shape. These functions are then used in the collision finding algorithm, as given a scene described by $\{sdf_i|i\in{1, \cdots, k}\}$ and any point $\vec{\hat{x}}$ which is outside all the shapes, surely all the points in $A_{\vec{\hat{x}}} = \{\vec{x}\in\mathbb{R}^2: ||\vec{\hat{x}}-\vec{x}||_2 \leq \min_{i}sdf_i(\vec{\hat{x}}) \}$ will be outside all the shapes. Given a ray described by a direction $\vec{d}\in\mathbb{R}^2, ||\vec{d}||_2 = 1$, and a starting point $\vec{x}^{(0)} \in \mathbb{R}^2$, the algorithm keep iterating $\vec{x}^{(n)} = \vec{x}^{(n-1)} + \vec{d} \min_{i}sdf_i(\vec{x}^{(n-1)})$ until either the maximum number of iterations $n_{lidar}$ is reached or $\min_{i}sdf_i(\vec{x}^{(n)})<\varepsilon_{lidar}$. This procedure can be used to simulate a LIDAR by simply repeating the procedure for each ray, and since each ray is independent, this can easily be parallelised. $n_{rays}$ rays are simulated for each LIDAR. For the plants, a simple circular signed distance function has been implemented, where given a plant position $\vec{p} \in \mathbb{R}^2$ and a plant radius $r_{plant} \in \mathbb{R}^+$, $sdf_p(\vec{x})=||\vec{x} - \vec{p} ||_2 - r_{plant}$. This model is quite simplistic, but with the required smoothing and anomaly detection can be quite faithful to the actual Rockerbot's LIDARs. Another approximation is that in the simulation, the robot has only one 360° unobstructed LIDAR instead of the two of the actual robot, but once again, with the due pre-processing, the simulated configuration can be a faithful approximation.
 
 \subsection{Termination Conditions}
 For each environment, the episode terminates when at least one of the following conditions is met:
@@ -331,196 +335,112 @@ For each environment, the episode terminates when at least one of the following 
     \item \textbf{Completion}: The robot has reached all the waypoints
 \end{itemize}
 
+\subsection{Current parameters}
+The current parameters of the simulation can be found in the repo.
 
 \section{Reinforcement Learning Problem Formulation}
+FRE25 task 1 can be framed as a continuous state, observations, and actions \textbf{Partially Observable Markov Decision Process (POMDP) \cite{POMDPS}}. What follows is a possible general formulation of the problem as a POMDP. In the next section, all the tweaks necessary to achieve a working solution are discussed in greater detail. 
 
-\section{Reinforcement Learning Proposed Solution}
+\subsection{States}
+The States of the POMDP are made up of:
+\begin{itemize}
+    \item All the plants' positions in the current episode
+    \item The robot's position, orientation, and the yaw and speed of each wheel
+\end{itemize}
 
+All of these are, at best, accessible to the robot through noisy measurements.
+
+\subsection{Observations}
+The robot can observe the states via the wheels' position and velocity encoders and the LIDAR. The robot is also aware of the current command in the Command Buffer.
+
+\subsection{Actions}
+The actions performable by the agent vary depending on the chosen kinematics, but in general, they are the robot's controls. For the goal 4WIS4WID kinematic, the actions would be the angle and the velocity targets for each wheel. The control signal of the Command Buffer is also controlled by the policy.
+
+\subsection{Reward}
+A reward function should reflect the goal of the learning process. In the simulation, the simplest way to access a policy's performance is through the number of reached waypoints. 
+
+\section{RL Proposed Solution}
+To solve the problem, the chosen algorithm is Proximal Policy Optimisation \cite{Schulman2017ProximalPO} due to its widespread adoption in similar applications, relatively straightforward implementation compared to trust region methods, native support for both continuous and discrete action spaces without architectural modifications, and demonstrated robustness to hyperparameter variations across diverse problem domains. It is also natively integrated in Isaac Lab through many RL libraries, the chosen one is Stable Baselines 3 \cite{raffin2021stable}
+
+\subsection{Proposed Developer Curriculum}
+To assert how close to a full end-to-end solution one can get with this setup, the following procedure has been followed during the development process:
+\begin{itemize}
+    \item If, by tuning hyperparameters, the performance does not seem to improve, simplify the problem
+    \item When a satisfactory level of performance is reached, increase the difficulty of the problem
+\end{itemize}
+
+By experimenting with this procedure, the following difficulty sequence has been identified, ordered by task difficulty in decreasing order:
+\begin{enumerate}
+    \item \textbf{The Full Task} - 4WIS4WID, Command buffer control, Skip up to 2 rows,
+    \item \textbf{The Task with a Rigid Body} - FRBK, Command buffer control, Skip up to 2 rows
+    \item \textbf{The Task translating} - Crab, Command buffer control, Skip up to 2 rows
+    \item \textbf{The Task translating without skipping} - Crab, Command buffer control, Skip up to 1 row
+    \item \textbf{Just plain navigation} - Crab, Automatic Command buffer control, Skip up to 1 row
+\end{enumerate}
+The Crab kinematic has been chosen as the baseline as it has proven to be a fruitful strategy by other competitors in the FRE24. The time budget allowed the current implementation to reach only level 4, but all the tools are in place to move further. \textbf{The rest of this section refers to the current implementation}.
+
+\subsection{Crab Differential Actions}
+The constraints of the crab kinematic implies $\delta = \delta_i, i\in\{1, \cdots, 4\}$. Thus, the control variables are just $\delta \in [-\pi/2, \pi/2]$ and a throttle $f \in [-1,1]$. Taking inspiration from classic control theory, a differential control has been chosen. The policy will then act by choosing $\dot{\delta}$ and $\dot{f}$. This has two main advantages, both confirmed by empirical evidence:
+\begin{itemize}
+    \item It makes the learning process easier and more stable, gaining the same advantages as feedback control,
+    \item It makes it easier to enforce physical constraints like $\dot{\delta}_{max}$ 
+\end{itemize}
+
+\subsection{Accumulator-Based Memory Model}
+Since the Markov assumption is violated, the policy needs to retain information about its previous states and actions. The standard solution is to implement a policy model with memory (RNN, LSTM, GRU, $\cdots$). These architectures are notoriously slow to train due to their intrinsic sequential nature and thus not very parallelizable. This is in stark contrast to the massively parallel implementation of Isaac Lab, and it soon became apparent that these kinds of policies are not feasible in the current setup.
+
+Furthermore, despite the partial observability, the task doesn't seem to show any crucial long-horizon time dependence. This led to the implementation of an accumulator-based memory model that tries to get closer to a Markovian scenario by constructing the continuous hidden state $\vec{h}\in\mathbb{R}^{d_h}$. The policy will receive $\vec{h}$ as an additional observation, and it will act on it by choosing $\dot{\vec{h}}$. This is inspired by the odometry usually performed in mobile robot navigation. $\vec{h}$ essentially functions as a scratchpad for the policy, and as such, it can be used for interpretability purposes.
+
+Moreover, to allow for higher-order control and since the command buffer functions on the rising front of its control signal, the previous actions performed by the policy are also fed as observations.
+
+\subsection{Command Buffer Parity}
+To facilitate the alternating movement, the parity of the current command's index in its sequence is also fed to the policy as an observation.
+
+\subsection{Action Discretization}
+The choice of differential controls also allows for strong discretisation of the action space, further simplifying the problem. In particular, the robot kinematic controls can be reduced to categorical values as follows: $\dot{\delta}, \dot{f} \in \{-1, 0, 1\}$. The Command Buffer control $q$ can just be binary and the hidden state differential can also become categorical as $\dot{\vec{h}}\in \{-1, 1\}^{n_h}$ 
+
+\subsection{Reward shaping}
+Only rewarding the model with a +1 whenever it reaches a waypoint resulted as too sparse for efficient learning to happen. The current reward function is a linear combination of many factors:
+\begin{itemize}
+    \item Whether a waypoint is reached in the current simulation step,
+    \item The projected velocity of the robot $\vec{v}$ in the global reference frame onto the line connecting the robot to the next waypoint 
+    \item A penalty for plant collisions
+    \item A penalty for time-out
+    \item A penalty for being out of bounds
+    \item A penalty for stepping the command buffer
+    \item A penalty proportional to the absolute difference of the current row number and the index of the current command in the command buffer
+    \item a penalty proportional to the distance to the next waypoint
+    
+\end{itemize}
+
+The actual coefficients of the combination can be found in the code repository.
 
 \section{Results}
+The current state of the project allows for a complete solution of phase 4, which can be found in the repo. To achieve the current solution, some experimentation was required: \textbf{339 training runs} have been performed for a total of \textbf{487.29 hours of training time}. The best configuration of hyperparameters found so far can now be trained from scratch in about 1 hour, and it completes the first row for the first time after about 2 minutes of training. Despite being extremely far from the actual end-to-end physical deployment of an RL policy, these first results show a promising trend. In the current state of the project, the most valuable product of this project is not yet the control policy, but the long list of mistakes and lessons learned on how to effectively interact with the Reinforcement Learning framework. What follows is a list of qualitative heuristics learned during development in no particular order:
+\begin{itemize}
+    \item \textbf{Hyperparameters are not all you need}: tuning hyperparameters can be helpful but with PPO it becomes secondary. Once in one of the many broad areas of stability of the algorithm, changing the observations, actions and reward has a much greater effect
+    \item \textbf{Avoid Partially Observable Software Development}: Once a headless training run is going, the behaviour of the simulation can only be observed through logs. The better the logging tools, the easier it is to gain insight into what is actually happening and the easier it is to spot problems sooner
+    \item \textbf{Model Architecture is not that important}: Compared to other fields of machine learning, the actual size of the network does not impact performance that much.
+    \item \textbf{Pre-training helps}: Once a model architecture and the observations/actions domains are identified, training from scratch can be wasteful, while starting from a previous checkpoint and overriding key hyperparameters/reward structure can be a major speed-up.
+    \item \textbf{Remember to also test at scale}: When dealing with a highly vectorised environment, some issues may arise only when multiple environments are run together.
+    \item \textbf{Make sure that the POMDP formulation describes a doable task}: Features like teleoperation and observation plotting can make the difference in understanding the weak points of the current formulation.
+    \item \textbf{Always make structured hypotesis when tuning hyperparameters}: Searching in a huge space can be daunting and confusing, thus some structure in the experimentation is needed 
+
+    
+\end{itemize}
 
 \section{Conclusion}
 
-\section{Guidelines}
-\label{sec:guidelines}
+This project investigated whether end-to-end Reinforcement Learning could solve the autonomous navigation challenge of FRE25 Task 1 using Rockerbot. Physical deployment was not achieved within the available timeframe, as approximately two-thirds of the time budget was consumed by simulation development.
 
-The Executive Summary is a critical overview of your thesis
-with a focus on the main achievements that have emerged from your research.
+The main technical outcome is a functional Isaac Lab simulation environment that models the task scenario, including procedural crop row generation, custom ray marching-based LIDAR implementation for dynamic objects, and Rockerbot's 4WIS4WID kinematic constraints. The simulation runs at approximately 3000 steps per second.
 
-The Executive Summary should be organized in sections/paragraphs
-in order to better highlight the major points of your work.
-The length should range from four to six pages depending on the length of the thesis manuscript.
-Keep the Executive Summary concise enough to be effective but long enough to allow it to be complete.
-It should be written after completing the thesis manuscript as a stand-alone independent document
-of sufficient clarity and detail to ensure that the reader can figure out the overall objectives,
-the methodology employed and the results/impact of your research.
+An RL policy was developed that can navigate crop rows using the Crab kinematic. After 339 training runs totaling 487.29 hours, the current configuration trains from scratch in about one hour and completes the first row after approximately two minutes of training. Key design choices included differential action spaces, accumulator-based memory to address partial observability, and structured reward shaping.
 
-In writing the Executive Summary, keep in mind that it is not an abstract, it is not a preface,
-and it is not a random collection of highlights.
-With a few exceptions, do not simply cut and paste whole sections or paragraphs of the thesis manuscript
-into a disorganized and cluttered Executive Summary.
-You should reorganize information to be informative as well as concise.
+The development process revealed practical considerations for applying RL to robotics problems. Observation and action space design had greater impact than hyperparameter tuning, comprehensive logging proved essential for understanding training behavior, and pre-training from checkpoints accelerated development. The time required for simulation infrastructure should not be underestimated when working with emerging frameworks.
 
-The Executive Summary could contain a few important equations related to your work.
-It could also include the most relevant figures and tables taken or elaborated from the thesis manuscript.
+The simulation framework and trained policies provide a foundation for advancing through the remaining curriculum levels toward full 4WIS4WID control and eventually addressing the sim-to-real gap. While the original goal was not reached, the project demonstrates that RL approaches are applicable to agricultural navigation tasks and documents the practical challenges encountered in this process.
 
-You should also include in the Executive Summary the very essential bibliography of your study.
-The number of selected references should range from three to five depending on the type of work.
-
-The Executive Summary should contain a final section reporting the main conclusions drawn from your research.
-
-\section{Sections and subsections}
-\label{sec:sec_and_subsec}
-It is convenient to organize the Executive Summary of your thesis into sections and subsections. 
-If necessary, subsubsections, paragraphs and subparagraphs can be also used. 
-A new section or subsection can be included  with the commands
-\begin{verbatim}
-\section{Title of the section}
-\end{verbatim}
-\begin{verbatim}
-\subsection{Title of the subsection}
-\end{verbatim}
-It is recommended to give a label to each section by using the command
-\begin{verbatim}
-\label{sec:section_name}%
-\end{verbatim}
-where the argument is just a text string that you'll use to reference that part
-as follows: \textit{Section~\ref{sec:sec_and_subsec} contains \sc{SECTIONS AND SUBSECTIONS}  \dots}.\\
-
-%-----------------------------------------------------------------------------
-% EQUATIONS AND FIGURES
-%-----------------------------------------------------------------------------
-\section{Equations, Figures, Tables and Algorithms}
-\label{sec:equations_and_figures}
-All Figures, Tables and Algorithms have to be properly referred in the text.
-Equations have to be numbered only if they are referred in the text.
-\subsection{Equations}
-\label{sec_equations}
-A few important equations related to your work might be reported in the Executive Summary. For example, the Maxwell's equations read:
-\begin{subequations}
-    \label{eq:maxwell}
-    \begin{align}[left=\empheqlbrace]
-    \nabla\cdot \bm{D} & = \rho, \label{eq:maxwell1} \\
-    \nabla \times \bm{E} +  \frac{\partial \bm{B}}{\partial t} & = \bm{0}, \label{eq:maxwell2} \\
-    \nabla\cdot \bm{B} & = 0, \label{eq:maxwell3} \\
-    \nabla \times \bm{H} - \frac{\partial \bm{D}}{\partial t} &= \bm{J}. \label{eq:maxwell4}
-    \end{align}
-\end{subequations}
-
-Equation~\eqref{eq:maxwell} is automatically labeled by \texttt{cleveref},
-as well as Equation~\eqref{eq:maxwell1} and Equation~\eqref{eq:maxwell3}.
-Thanks to the \verb|cleveref| package, there is no need to use \verb|\eqref|.
-
-\subsection{Figures}
-\label{sec:figures}
-To include Figures in your text you can use \texttt{TikZ} for high-quality hand-made figures \cite{tikz},
-or just include them with the command
-\begin{verbatim}
-\includegraphics[options]{filename.xxx}
-\end{verbatim}
-where xxx is the format (\verb|.png|, \verb|.jpg|, \verb|.eps|, \dots).
-An example is shown in Figure~\ref{fig:quadtree}.
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.3\textwidth]{logo_polimi_scritta.eps}
-    \caption{Caption of the Figure.}
-    \label{fig:quadtree}
-\end{figure}
-
-\subsection{Tables}
-\label{subsec:tables}
-
-Within the environments \texttt{table} and  \texttt{tabular} you can create very fancy tables like the one shown in Table~\ref{table:example}.
-\begin{table}[H]
-    \caption*{\textbf{Example of Table}}
-    \centering 
-    \begin{tabular}{|p{3em} c c c |}
-    \hline
-    \rowcolor{bluePoli!40}
-     & \textbf{column1} & \textbf{column2} & \textbf{column3} \T\B \\
-    \hline \hline
-    \textbf{row1} & 1 & 2 & 3 \T\B \\
-    \textbf{row2} & $\alpha$ & $\beta$ & $\gamma$ \T\B\\
-    \textbf{row3} & alpha & beta & gamma \B\\
-    \hline
-    \end{tabular}
-    \\[10pt]
-    \caption{Caption of the Table.}
-    \label{table:example}
-\end{table}
-
-\subsection{Algorithms}
-\label{subsec:algorithms}
-
-Pseudo-algorithms can be written in \LaTeX{} with the \texttt{algorithm} and \texttt{algorithmic} packages.
-One example follows.
-\begin{algorithm}[H]
-\label{alg:example}
-\caption{Name of the Algorithm}
-\label{alg:var}
-\label{protocol1}
-\begin{algorithmic}[1]
-\STATE Initial instructions
-\FOR{$for-condition$}
-\STATE{Some instructions}
-\IF{$if-condition$}
-\STATE{Some other instructions}
-\ENDIF
-\ENDFOR
-\WHILE{$while-condition$}
-\STATE{Some further instructions}
-\ENDWHILE
-\STATE Final instructions
-\end{algorithmic}
-\end{algorithm} 
-
-\section{Some further useful recommendations}
-
-Theorems and Propositions have to be formatted as follows:
-\begin{theorem}
-\label{a_theorem}
-Write here your theorem. 
-\end{theorem}
-\textit{Proof.} If useful you can report here the proof.
-\vspace{0.3cm} % Insert vertical space
-
-How to write propositions:
-\begin{proposition}
-Write here your proposition.
-\end{proposition}
-\vspace{0.3cm} % Insert vertical space
-
-How to insert itemized lists:
-\begin{itemize}
-    \item first item;
-    \item second item.
-\end{itemize}
-How to insert numbered lists:
-\begin{enumerate}
-    \item first item;
-    \item second item.
-\end{enumerate}
-
-%-----------------------------------------------------------------------------
-% HOW TO CITE BIBLIOGRAPHY
-%-----------------------------------------------------------------------------
-\section{Bibliography}
-\label{sec:bibliography}
-The Executive Summary should contain the very essential bibliography of your study.
-It is suggested to use the BibTeX package \cite{bibtex} and save the bibliographic references
-in the file  \verb|bibliography.bib|.
-
-%-----------------------------------------------------------------------------
-% CONCLUSION
-%-----------------------------------------------------------------------------
-\section{Conclusions}
-A final section containing the main conclusions of your research/study have to be inserted here.
-
-%---------------------------------------------------------------------------
-%  ACKNOWLEDGEMENTS 
-%---------------------------------------------------------------------------
-\section{Acknowledgements}
-Here you might want to acknowledge someone.
 
 %---------------------------------------------------------------------------
 %  BIBLIOGRAPHY
