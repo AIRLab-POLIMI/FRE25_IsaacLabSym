@@ -94,7 +94,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # add ground plane
         spawn_ground_plane(
-            prim_path="/World/ground", cfg=GroundPlaneCfg(size=(10000000, 10000000))
+            prim_path="/World/ground", cfg=GroundPlaneCfg(size=self.cfg.ground_plane_size)
         )
 
         # clone and replicate
@@ -104,7 +104,10 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.scene.articulations["robot"] = self.robots
 
         # add lights
-        light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
+        light_cfg = sim_utils.DomeLightCfg(
+            intensity=self.cfg.dome_light_intensity,
+            color=self.cfg.dome_light_color
+        )
         light_cfg.func("/World/Light", light_cfg)
 
         # Add waypoint markers to the scene
@@ -116,8 +119,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Initialize command buffer
         self.commandBuffer = CommandBuffer(
             nEnvs=self.scene.num_envs,
-            commandsLength=8,
-            maxRows=1,
+            commandsLength=self.cfg.commands_length,
+            maxRows=self.cfg.max_rows,
             device=self.device,
         )
         self.commandBuffer.randomizeCommands()
@@ -126,12 +129,12 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.paths = PathHandler(
             device=self.device,
             nEnvs=self.scene.num_envs,
-            nPaths=2 * (self.commandBuffer.commandsLength + 1),  # Two paths per command (left/right)
-            pathsSpacing=1.2,
-            nControlPoints=10,
-            pathLength=3,
-            pathWidth=0.15,
-            pointNoiseStd=0.03,
+            nPaths=2 * (self.cfg.commands_length + 1),  # Two paths per command (left/right)
+            pathsSpacing=self.cfg.paths_spacing,
+            nControlPoints=self.cfg.n_control_points,
+            pathLength=self.cfg.path_length,
+            pathWidth=self.cfg.path_width,
+            pointNoiseStd=self.cfg.point_noise_std,
         )
 
         self.paths.generatePath()
@@ -142,19 +145,19 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             envsOrigins=self.scene.env_origins,
             commandBuffer=self.commandBuffer,
             pathHandler=self.paths,
-            waipointReachedEpsilon=0.35,
-            maxDistanceToWaypoint=1.8,
-            endOfRowPadding=0.4,
-            extraWaypointPadding=0.8,
-            waypointsPerRow=3,
+            waipointReachedEpsilon=self.cfg.waypoint_reached_epsilon,
+            maxDistanceToWaypoint=self.cfg.max_distance_to_waypoint,
+            endOfRowPadding=self.cfg.end_of_row_padding,
+            extraWaypointPadding=self.cfg.extra_waypoint_padding,
+            waypointsPerRow=self.cfg.waypoints_per_row,
         )
         self.waypoints.initializeWaypoints()
 
         # Add Plants to the scene
         self.plants = PlantHandler(
-            nPlants=10 * self.paths.nPaths,
+            nPlants=self.cfg.n_plants_per_path * self.paths.nPaths,
             envsOrigins=self.scene.env_origins,
-            plantRadius=0.22,
+            plantRadius=self.cfg.plant_radius,
         )
 
         self.plants.spawnPlants()
@@ -265,8 +268,8 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.steering_buffer += steering_actions
         self.steering_buffer = torch.clamp(
             self.steering_buffer,
-            -3.14 / 2,
-            3.14 / 2,
+            self.cfg.steering_buffer_min,
+            self.cfg.steering_buffer_max,
         )
         # steering_actions = self.actions[:, len(self.wheels_dof_idx) :]
         # steering_actions = torch.zeros_like(steering_actions)
@@ -418,7 +421,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Reward for reaching waypoints
         waypointReward = (
-            waypoints_reached_this_step * 100 / self.waypoints.waypointsPerRow
+            waypoints_reached_this_step * self.cfg.waypoint_reward_base / self.waypoints.waypointsPerRow
         )  # (n_envs,)
 
         # Track waypoints reached for episode statistics
@@ -449,7 +452,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # print(
         #     f"toWaypointDir: {toWaypointDir}, velocity:{velocity}, dt: {dt}, velocityTowardsWaypoint: {velocityTowardsWaypoint}"
         # )
-        velocityTowardsWaypoint *= 0.5
+        velocityTowardsWaypoint *= self.cfg.velocity_towards_waypoint_scale
 
         # Comunte velocity orthogonal to the waypoint direction and penalize it
         # velocityOrthogonalToWaypoint = (
@@ -465,25 +468,25 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Time out penalty
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        timeOutPenalty = time_out.float() * -100  # -50
+        timeOutPenalty = time_out.float() * self.cfg.timeout_penalty
 
         # Penalty for plant collisions
-        plantCollisionPenalty = self.plant_collision_buffer.float() * -100  # -50
+        plantCollisionPenalty = self.plant_collision_buffer.float() * self.cfg.plant_collision_penalty
         self.plant_collision_buffer = torch.zeros(self.num_envs, device=self.device)
 
         # Out of bounds penalty
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
-        outOfBoundsPenalty = out_of_bounds.float() * -100  # -50
+        outOfBoundsPenalty = out_of_bounds.float() * self.cfg.out_of_bounds_penalty
 
         # Penalty for performing a command step
         # This encourages the agent to be selective about when to advance the command buffer
-        commandStepPenalty = -0 * self.command_step_buffer.float()
+        commandStepPenalty = self.cfg.command_step_penalty * self.command_step_buffer.float()
 
         # Penalty for command buffer in the wrong place
         rightIndex = torch.clip(torch.clip(self.waypoints.currentWaypointIndices[:, 1] - 0, min=0) // (self.waypoints.waypointsPerRow + 1), max=self.commandBuffer.commandsLength - 1)
         commandIndices = self.commandBuffer.indexBuffer
         commandIndexDiff = torch.abs(rightIndex - commandIndices)
-        commandIndexPenalty = -1.0 * commandIndexDiff.float()
+        commandIndexPenalty = self.cfg.command_index_penalty_scale * commandIndexDiff.float()
 
         # Reset command step buffer after computing the reward
         # This is done here (not in _apply_action) because _apply_action is called
@@ -492,7 +495,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.command_step_buffer[:] = False
 
         # Distance to waypoint penalty (encourage getting closer)
-        distancePenalty = -torch.clamp(toWaypointNorm.squeeze() - 0.1, min=0) * 1
+        distancePenalty = -torch.clamp(toWaypointNorm.squeeze() - self.cfg.distance_penalty_threshold, min=0) * self.cfg.distance_penalty_scale
 
         # Note: No action bound violation penalty for discrete actions
 
@@ -509,7 +512,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         )
         # print(f"totalReward: {totalReward}")
 
-        return totalReward / 10
+        return totalReward * self.cfg.total_reward_scale
 
     def _get_observations(self) -> dict:
         # print("GET OBSERVATIONS")

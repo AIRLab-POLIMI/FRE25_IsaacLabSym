@@ -65,23 +65,82 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     # Whether to randomize robot yaw on reset
     randomize_yaw: bool = False
 
-    # custom parameters/scales
-    # - controllable joint
-    cart_dof_name = "slider_to_cart"
-    pole_dof_name = "cart_to_pole"
+    # ========================================================================================
+    # Robot Control Parameters
+    # ========================================================================================
+    # - Controllable joints
+    cart_dof_name = "slider_to_cart"  # Legacy parameter (not used in current env)
+    pole_dof_name = "cart_to_pole"  # Legacy parameter (not used in current env)
     wheels_dofs_names = wheelsJoints
     steering_dofs_names = steeringJoints
-    # - action scale
-    action_scale = 50000.0  # [N]
-    wheels_effort_scale = 15
-    # The range of the steering action is [-1, 1], which corresponds to a steering angle of [-steering_scale, steering_scale] degrees
-    steering_scale = 2  # degs/step
-    # - reward scales
-    rew_scale_alive = 1.0
-    rew_scale_terminated = -2.0
-    rew_scale_pole_pos = -1.0
-    rew_scale_cart_vel = -0.01
-    rew_scale_pole_vel = -0.005
-    # - reset states/conditions
-    initial_pole_angle_range = [-0.25, 0.25]  # pole angle sample range on reset [rad]
-    max_cart_pos = 3.0  # reset if cart exceeds this position [m]
+
+    # - Action scales
+    action_scale = 50000.0  # [N] - Legacy parameter (not used in current env)
+    wheels_effort_scale = 15  # Velocity scale for wheel motors
+    steering_scale = 2  # Steering angle change per step [degrees/step]
+
+    # - Steering limits
+    steering_buffer_min = -3.14 / 2  # Minimum steering angle [rad] (~-90 degrees)
+    steering_buffer_max = 3.14 / 2  # Maximum steering angle [rad] (~90 degrees)
+
+    # ========================================================================================
+    # Scene Parameters
+    # ========================================================================================
+    # - Ground plane
+    ground_plane_size = (10000000.0, 10000000.0)  # Ground plane dimensions [m]
+
+    # - Lighting
+    dome_light_intensity = 2000.0  # Scene lighting intensity
+    dome_light_color = (0.75, 0.75, 0.75)  # Scene lighting RGB color
+
+    # ========================================================================================
+    # Command Buffer Parameters
+    # ========================================================================================
+    commands_length = 8  # Number of commands in sequence
+    max_rows = 1  # Maximum number of rows per command (1 to max_rows)
+
+    # ========================================================================================
+    # Path Handler Parameters
+    # ========================================================================================
+    # Number of paths = 2 * (commands_length + 1) - two paths per command (left/right)
+    paths_spacing = 1.2  # Spacing between parallel paths [m]
+    n_control_points = 10  # Number of control points for path generation
+    path_length = 3.0  # Length of each path segment [m]
+    path_width = 0.15  # Width of each path [m]
+    point_noise_std = 0.03  # Standard deviation of noise added to path points [m]
+
+    # ========================================================================================
+    # Waypoint Handler Parameters
+    # ========================================================================================
+    waypoint_reached_epsilon = 0.35  # Distance threshold to consider waypoint reached [m]
+    max_distance_to_waypoint = 1.8  # Maximum allowed distance from waypoint before out-of-bounds [m]
+    end_of_row_padding = 0.4  # Additional distance padding at end of each row [m]
+    extra_waypoint_padding = 0.8  # Additional spacing for extra waypoints between rows [m]
+    waypoints_per_row = 3  # Number of waypoints per row
+
+    # ========================================================================================
+    # Plant Handler Parameters
+    # ========================================================================================
+    n_plants_per_path = 10  # Number of plants per path (total = n_plants_per_path * n_paths)
+    plant_radius = 0.22  # Radius of each plant for collision detection [m]
+
+    # ========================================================================================
+    # Reward Function Parameters
+    # ========================================================================================
+    # - Waypoint rewards
+    waypoint_reward_base = 100.0  # Base reward for reaching a waypoint (The actual ammount reppresnt the reward for an entire row)
+
+    # - Velocity rewards
+    velocity_towards_waypoint_scale = 0.5  # Scale for velocity projection reward
+
+    # - Penalties
+    timeout_penalty = -100.0  # Penalty for reaching max episode length
+    plant_collision_penalty = -100.0  # Penalty for colliding with a plant
+    out_of_bounds_penalty = -100.0  # Penalty for exceeding max distance from waypoint
+    command_step_penalty = 0.0  # Penalty for taking a command step (currently disabled)
+    command_index_penalty_scale = -1.0  # Scale for command buffer misalignment penalty
+    distance_penalty_scale = 1.0  # Scale for distance to waypoint penalty
+    distance_penalty_threshold = 0.1  # Threshold for distance penalty [m]
+
+    # - Final reward scaling
+    total_reward_scale = 0.1  # Final scaling factor applied to total reward (division by 10)
