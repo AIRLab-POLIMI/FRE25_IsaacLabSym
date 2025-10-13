@@ -563,6 +563,164 @@ Collect and categorize failure modes:
 \end{itemize}
 
 
+\section{Results}
+
+\subsection{Final Configuration}
+After 339 training runs totaling 487.29 hours (20.30 days) of experimentation, the following configuration represents the current best-performing setup for Task 1 navigation at curriculum level 4.
+
+\subsubsection{Environment Parameters}
+The simulation environment parameters are listed in Table \ref{tab:sim_params}.
+
+\begin{table}[h]
+\centering
+\caption{Simulation Environment Parameters}
+\label{tab:sim_params}
+\small
+\begin{tabular}{|l|r|l|}
+\hline
+\textbf{Parameter} & \textbf{Value} & \textbf{Unit} \\
+\hline
+\multicolumn{3}{|c|}{\textit{Timing}} \\
+\hline
+Decimation & 4 & - \\
+Simulation dt & 1/120 & s \\
+Episode length ($t_{sim}$) & 300.0 & s \\
+\hline
+\multicolumn{3}{|c|}{\textit{Command Buffer}} \\
+\hline
+Commands length & 8 & - \\
+Max rows & 1 & - \\
+\hline
+\multicolumn{3}{|c|}{\textit{Path Generation}} \\
+\hline
+Row spacing ($\Delta_r$) & 1.2 & m \\
+Control points ($c_r$) & 10 & - \\
+Path length ($l_r$) & 3.0 & m \\
+Control point noise std ($\sigma_c$) & 0.15 & m \\
+Plant noise std ($\sigma_p$) & 0.03 & m \\
+\hline
+\multicolumn{3}{|c|}{\textit{Waypoints}} \\
+\hline
+Waypoints per row & 3 & - \\
+Reached tolerance ($\varepsilon_w$) & 0.35 & m \\
+Max distance & 1.8 & m \\
+End of row padding & 0.4 & m \\
+Extra waypoint padding & 0.8 & m \\
+\hline
+\multicolumn{3}{|c|}{\textit{Plants}} \\
+\hline
+Plants per path ($\rho$) & 10 & - \\
+Plant radius ($r_{plant}$) & 0.22 & m \\
+\hline
+\multicolumn{3}{|c|}{\textit{LiDAR Sensor}} \\
+\hline
+Rays per robot ($n_{rays}$) & 40 & - \\
+Max distance & 1.0 & m \\
+Tolerance ($\varepsilon_{lidar}$) & 0.01 & m \\
+Max raymarching steps ($n_{lidar}$) & 100 & - \\
+\hline
+\multicolumn{3}{|c|}{\textit{Robot Control}} \\
+\hline
+Wheels effort scale & 15 & - \\
+Steering scale & 2 & deg/step \\
+Steering buffer min & -90 & deg \\
+Steering buffer max & +90 & deg \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Reward Function Parameters}
+The reward function weights are shown in Table \ref{tab:reward_params}.
+
+\begin{table}[h]
+\centering
+\caption{Reward Function Parameters}
+\label{tab:reward_params}
+\small
+\begin{tabular}{|l|r|}
+\hline
+\textbf{Component} & \textbf{Weight} \\
+\hline
+Waypoint reward base & 100.0 \\
+Velocity toward waypoint scale & 0.5 \\
+Timeout penalty & -100.0 \\
+Plant collision penalty & -100.0 \\
+Out of bounds penalty & -100.0 \\
+Command step penalty & 0.0 \\
+Command index penalty scale & -1.0 \\
+Distance penalty scale & 1.0 \\
+Distance penalty threshold & 0.1 m \\
+Total reward scale & 0.1 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Policy and Training Configuration}
+The PPO algorithm hyperparameters and network architecture are detailed in Table \ref{tab:training_params}.
+
+\begin{table}[h]
+\centering
+\caption{PPO Training Parameters}
+\label{tab:training_params}
+\small
+\begin{tabular}{|l|r|}
+\hline
+\textbf{Parameter} & \textbf{Value} \\
+\hline
+\multicolumn{2}{|c|}{\textit{PPO Hyperparameters}} \\
+\hline
+Learning rate & 3e-4 \\
+Gamma (discount factor) & 0.99 \\
+GAE lambda & 0.95 \\
+Clip range & 0.2 \\
+Entropy coefficient & 0.01 \\
+Value function coefficient & 0.5 \\
+Max gradient norm & 0.5 \\
+\hline
+\multicolumn{2}{|c|}{\textit{Training Setup}} \\
+\hline
+Number of environments ($N_e$) & 4096 \\
+Steps per environment & 24 \\
+Batch size & 512 \\
+Number of epochs & 8 \\
+Total timesteps & 5M \\
+\hline
+\multicolumn{2}{|c|}{\textit{Network Architecture}} \\
+\hline
+Policy network & [256, 128, 64] \\
+Value network & [256, 128, 64] \\
+Activation function & ReLU \\
+\hline
+\multicolumn{2}{|c|}{\textit{Action Space}} \\
+\hline
+Steering action & \{-1, 0, +1\} \\
+Throttle action & \{-1, 0, +1\} \\
+Step command action & \{0, 1\} \\
+Hidden states & 0 (disabled) \\
+\hline
+\multicolumn{2}{|c|}{\textit{Observation Space}} \\
+\hline
+Current steering angle & 1 \\
+LiDAR readings & 40 \\
+Command buffer state & 3 \\
+Past actions & 3 \\
+\textbf{Total observation dim} & \textbf{47} \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Training Performance}
+The current configuration achieves the following performance metrics:
+\begin{itemize}
+    \item \textbf{Training time from scratch}: Approximately 1 hour
+    \item \textbf{Time to first row completion}: Approximately 2 minutes of training
+    \item \textbf{Total training runs}: 339 runs across all experiments
+    \item \textbf{Total computational time}: 487.29 hours (20.30 days)
+    \item \textbf{Simulation speed}: Up to 3000 steps per second
+\end{itemize}
+
+The training process demonstrated that observation and action space design had greater impact on learning success than hyperparameter tuning. The differential action space combined with the accumulator-based memory model proved essential for achieving stable learning in this partially observable navigation task.
+
 \section{Conclusion}
 
 This project investigated whether end-to-end Reinforcement Learning could solve the autonomous navigation challenge of FRE25 Task 1 using Rockerbot. Physical deployment was not achieved within the available timeframe, as approximately two-thirds of the time budget was consumed by simulation development.
