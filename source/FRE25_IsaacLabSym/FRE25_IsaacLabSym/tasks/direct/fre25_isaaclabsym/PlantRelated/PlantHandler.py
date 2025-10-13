@@ -21,6 +21,10 @@ class PlantHandler:
         nPlants: int = 100,
         envsOrigins: torch.Tensor = None,
         plantRadius: float = 1,
+        raysPerRobot: int = 40,
+        maxDistance: float = 1.0,
+        tol: float = 0.01,
+        maxSteps: int = 100,
     ):
         assert nPlants > 0, "Number of plants must be greater than 0, got {}".format(
             nPlants
@@ -38,10 +42,10 @@ class PlantHandler:
         self.raymarcher = RayMarcher(
             envsOrigins=self.envsOrigins,
             device=self.envsOrigins.device,
-            raysPerRobot=40,  # Number of rays per robot
-            maxDistance=1.0,  # Maximum distance for raymarching
-            tol=0.01,  # Tolerance for raymarching
-            maxSteps=100,  # Maximum steps for raymarching
+            raysPerRobot=raysPerRobot,
+            maxDistance=maxDistance,
+            tol=tol,
+            maxSteps=maxSteps,
         )
         pass
 

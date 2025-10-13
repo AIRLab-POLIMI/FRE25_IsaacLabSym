@@ -158,6 +158,10 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             nPlants=self.cfg.n_plants_per_path * self.paths.nPaths,
             envsOrigins=self.scene.env_origins,
             plantRadius=self.cfg.plant_radius,
+            raysPerRobot=self.cfg.lidar_rays_per_robot,
+            maxDistance=self.cfg.lidar_max_distance,
+            tol=self.cfg.lidar_tolerance,
+            maxSteps=self.cfg.lidar_max_steps,
         )
 
         self.plants.spawnPlants()

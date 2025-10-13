@@ -31,10 +31,16 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     num_hidden_states = 0  # Set by agent config if using hidden states
     hidden_state_scale = 0.005  # Scale for differential hidden state updates (integrator step size)
 
+    # LiDAR / RayMarcher Parameters (declared early as they affect observation_space)
+    lidar_rays_per_robot = 40  # Number of LiDAR rays per robot (observation space dimension)
+    lidar_max_distance = 1.0  # Maximum sensing distance for LiDAR [m]
+    lidar_tolerance = 0.01  # Tolerance for raymarching convergence [m]
+    lidar_max_steps = 100  # Maximum number of raymarching steps per ray
+
     # Base observation space (without past actions):
-    # 1 current steering + 40 lidar + 3 command buffer = 44 total
-    # If hidden states enabled: 44 + (3 + num_hidden_states) for past actions
-    observation_space = 1 + 40 * 1 + 3
+    # 1 current steering + lidar_rays_per_robot + 3 command buffer
+    # If hidden states enabled: base + (3 + num_hidden_states) for past actions
+    observation_space = 1 + lidar_rays_per_robot + 3
 
     state_space = 0
 
