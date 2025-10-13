@@ -28,7 +28,7 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     # Hidden states support (configurable via agent config)
     # If num_hidden_states > 0, add extra dummy actions for memory
     # ALL past actions (control + hidden) are fed back as observations
-    num_hidden_states = 0  # Set by agent config if using hidden states
+    num_hidden_states = 4  # Set by agent config if using hidden states
     hidden_state_scale = 0.005  # Scale for differential hidden state updates (integrator step size)
 
     # LiDAR / RayMarcher Parameters (declared early as they affect observation_space)
