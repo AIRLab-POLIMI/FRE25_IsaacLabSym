@@ -1,0 +1,402 @@
+Training Time Summary
+================================================================================
+
+Total Runs: 339
+Total Training Time: 20d 7h 17m 21s
+                     (487.29 hours)
+                     (20.30 days)
+
+Breakdown by Date
+--------------------------------------------------------------------------------
+
+
+2025-05-05: 19 runs, 8m 19s
+  • skrl/leatherback_direct/2025-05-05_20-07-07_ppo_torch: 0s
+  • skrl/leatherback_direct/2025-05-05_20-11-56_ppo_torch: 0s
+  • skrl/leatherback_direct/2025-05-05_20-15-01_ppo_torch: 0s
+  • skrl/leatherback_direct/2025-05-05_20-16-19_ppo_torch: 0s
+  • skrl/leatherback_direct/2025-05-05_20-17-25_ppo_torch: 0s
+  • skrl/leatherback_direct/2025-05-05_20-20-03_ppo_torch: 0s
+  • skrl/leatherback_direct/2025-05-05_20-21-28_ppo_torch: 0s
+  • skrl/leatherback_direct/2025-05-05_20-23-14_ppo_torch: 0s
+  • skrl/leatherback_direct/2025-05-05_20-32-24_ppo_torch: 0s
+  • skrl/leatherback_direct/2025-05-05_20-33-21_ppo_torch: 0s
+  • skrl/leatherback_direct/2025-05-05_20-38-01_ppo_torch: 0s
+  • skrl/leatherback_direct/2025-05-05_20-40-13_ppo_torch: 0s
+  • skrl/leatherback_direct/2025-05-05_20-41-56_ppo_torch: 0s
+  • skrl/leatherback_direct/2025-05-05_20-45-01_ppo_torch: 31s
+  • skrl/leatherback_direct/2025-05-05_20-46-13_ppo_torch: 4m 22s
+  • skrl/leatherback_direct/2025-05-05_20-51-06_ppo_torch: 32s
+  • skrl/leatherback_direct/2025-05-05_20-52-52_ppo_torch: 12s
+  • skrl/leatherback_direct/2025-05-05_20-53-21_ppo_torch: 35s
+  • skrl/leatherback_direct/2025-05-05_20-54-15_ppo_torch: 2m 3s
+
+2025-05-07: 5 runs, 6m 36s
+  • skrl/cartpole_direct/2025-05-07_17-57-09_ppo_torch: 1m 8s
+  • skrl/cartpole_direct/2025-05-07_17-58-46_ppo_torch: 1m 2s
+  • skrl/cartpole_direct/2025-05-07_18-04-48_ppo_torch: 1m 2s
+  • skrl/cartpole_direct/2025-05-07_18-06-53_ppo_torch: 1m
+  • skrl/cartpole_direct/2025-05-07_18-12-14_ppo_torch: 2m 23s
+
+2025-06-03: 2 runs, 4m 53s
+  • skrl/cartpole_direct/2025-06-03_17-08-04_ppo_torch: 1m 37s
+  • skrl/cartpole_direct/2025-06-03_17-10-09_ppo_torch: 3m 16s
+
+2025-09-04: 22 runs, 13h 45m 52s
+  • skrl/cartpole_direct/2025-09-04_18-25-25_ppo_torch: 0s
+  • skrl/cartpole_direct/2025-09-04_18-28-22_ppo_torch: 0s
+  • skrl/cartpole_direct/2025-09-04_18-28-40_ppo_torch: 0s
+  • skrl/cartpole_direct/2025-09-04_18-31-28_ppo_torch: 2m 57s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_18-46-16_ppo_torch: 2m 54s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_18-51-06_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_18-53-16_ppo_torch: 10m 11s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_19-07-20_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_19-07-43_ppo_torch: 16m 38s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_19-36-02_ppo_torch: 54s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_19-39-52_ppo_torch: 9m 13s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_19-50-39_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_19-51-00_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_19-51-22_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_19-57-37_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_20-02-30_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_20-06-36_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_20-09-47_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_20-11-43_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_20-13-15_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_20-14-21_ppo_torch: 2m 2s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-04_20-17-18_ppo_torch: 13h 59s
+
+2025-09-05: 18 runs, 17h 13m 5s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_11-17-49_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_11-26-08_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_12-14-02_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_16-28-11_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_16-33-32_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_16-35-07_ppo_torch: 33s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_16-36-48_ppo_torch: 3m 48s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_16-42-15_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_16-43-19_ppo_torch: 2m 55s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_16-49-15_ppo_torch: 5m
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_16-54-59_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_16-55-16_ppo_torch: 3m 57s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_17-03-34_ppo_torch: 16s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_17-04-34_ppo_torch: 29m 41s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_17-48-44_ppo_torch: 53s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_17-51-00_ppo_torch: 36s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_17-53-33_ppo_torch: 8m 45s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-05_18-04-48_ppo_torch: 16h 16m 37s
+
+2025-09-07: 9 runs, 12h 37m 2s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-07_19-44-08_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-07_19-49-49_ppo_torch: 59m 28s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-07_20-59-53_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-07_21-01-21_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-07_21-03-38_ppo_torch: 17s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-07_21-12-39_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-07_21-13-05_ppo_torch: 40m 42s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-07_21-57-01_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-07_21-57-29_ppo_torch: 10h 56m 33s
+
+2025-09-08: 5 runs, 19h 36m 49s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-08_11-10-16_ppo_torch: 1h 40m 33s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-08_14-56-39_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-08_14-58-08_ppo_torch: 27m 5s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-08_15-45-19_ppo_torch: 12m 50s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-08_16-19-52_ppo_torch: 17h 16m 19s
+
+2025-09-09: 22 runs, 21h 12m 53s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_10-52-57_ppo_torch: 52m 38s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_12-00-11_ppo_torch: 3h 35m 32s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_16-08-17_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_16-09-46_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_16-10-43_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_16-11-38_ppo_torch: 12m 19s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_17-05-17_ppo_torch: 49m 53s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_18-00-12_ppo_torch: 22m 25s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_18-26-22_ppo_torch: 1m 35s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_18-28-51_ppo_torch: 2m 48s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_18-33-28_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_18-34-10_ppo_torch: 3m 39s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_18-39-17_ppo_torch: 5m 18s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_18-46-08_ppo_torch: 8m 23s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_18-55-43_ppo_torch: 18m 8s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_19-15-28_ppo_torch: 1m 22s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_19-19-05_ppo_torch: 4m 35s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_19-24-42_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_19-25-01_ppo_torch: 29m 48s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_19-56-56_ppo_torch: 1m 51s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_20-00-31_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-09_20-01-17_ppo_torch: 14h 2m 31s
+
+2025-09-10: 26 runs, 20h 23m 22s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-10_12-01-34_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-10_12-19-35_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-10_12-22-13_ppo_torch: 21m 1s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-10_12-45-06_ppo_torch: 20m 33s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-10_13-08-13_ppo_torch: 3m 50s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-10_13-13-03_ppo_torch: 1h 6m 21s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-10_14-44-45_ppo_torch: 47m 17s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-10_15-36-33_ppo_torch: 26m 35s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-10_16-29-20_ppo_torch: 24m 16s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-10_16-56-56_ppo_torch: 16h 53m 25s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_10-59-50_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-01-47_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-04-10_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-05-39_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-06-19_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-11-35_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-12-33_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-13-23_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-16-39_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-17-15_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-20-14_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-26-59_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-40-54_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-45-50_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-50-13_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo_DISCRETE/2025-09-10_11-53-31_ppo_torch: 0s
+
+2025-09-11: 6 runs, 22h 23m 23s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-11_11-27-04_ppo_torch: 3m 37s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-11_11-31-57_ppo_torch: 53m 43s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-11_12-31-22_ppo_torch: 6h 31m 48s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-11_19-27-26_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-11_19-28-42_ppo_torch: 2h 44m 29s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-11_22-19-06_ppo_torch: 12h 9m 43s
+
+2025-09-12: 14 runs, 21h 11s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-12_11-04-24_ppo_torch: 45m 6s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-12_12-08-51_ppo_torch: 2m 54s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-12_12-12-42_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-12_12-26-17_ppo_torch: 23m 24s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-12_13-10-07_ppo_torch: 2m 8s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-12_13-14-11_ppo_torch: 13m 13s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-12_13-28-19_ppo_torch: 36m 45s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-12_14-17-32_ppo_torch: 5m 9s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-12_14-24-52_ppo_torch: 8m 34s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-12_14-35-09_ppo_torch: 59m 28s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-12_15-44-55_ppo_torch: 38m 51s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-12_16-25-18_ppo_torch: 6m 16s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-12_16-33-07_ppo_torch: 7h 14m 10s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-12_23-52-21_ppo_torch: 9h 44m 7s
+
+2025-09-13: 10 runs, 1h 6m 34s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-13_11-47-43_ppo_torch: 8m 3s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-13_11-58-30_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-13_11-59-11_ppo_torch: 4m 53s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-13_12-05-25_ppo_torch: 15m 55s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-13_13-25-04_ppo_torch: 1m 26s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-13_13-31-00_ppo_torch: 8m 5s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-13_13-33-55_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-13_13-34-51_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-13_13-58-22_ppo_torch: 10m 20s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-13_14-10-19_ppo_torch: 17m 50s
+
+2025-09-14: 17 runs, 20h 42m 35s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_12-54-17_ppo_torch: 6m 46s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_13-03-24_ppo_torch: 29s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_13-20-49_ppo_torch: 23s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_13-22-01_ppo_torch: 43s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_13-27-44_ppo_torch: 1m 27s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_13-30-52_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_13-31-50_ppo_torch: 1m 29s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_13-35-12_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_13-41-39_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_14-10-37_ppo_torch: 10m 20s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_14-24-44_ppo_torch: 25m 31s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_14-58-49_ppo_torch: 5h 29m 52s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_22-03-19_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_22-06-59_ppo_torch: 25m 33s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_23-01-13_ppo_torch: 20m 4s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_23-23-36_ppo_torch: 1m 3s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-14_23-26-39_ppo_torch: 13h 38m 47s
+
+2025-09-15: 5 runs, 4d 9h 33m 22s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-15_13-13-47_ppo_torch: 3h 37m 36s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-15_17-14-28_ppo_torch: 1h 19m 38s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-15_18-52-39_ppo_torch: 1h 10m 5s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-15_20-06-44_ppo_torch: 1h 32m 41s
+  • skrl/fre25_isaaclabsym_ppo/2025-09-15_21-45-02_ppo_torch: 4d 1h 53m 19s
+
+2025-10-03: 38 runs, 17h 14m 25s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_16-32-26: 3m 13s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_16-41-40: 26m 43s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_17-23-02: 12m 51s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_17-38-17: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_17-43-43: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_17-45-11: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_17-47-06: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_17-50-37: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_17-51-11: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_17-51-32: 1m 20s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_18-03-35: 20m 4s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_18-39-25: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_18-47-38: 3m 36s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_18-53-51: 3m 37s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_19-00-03: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_19-11-28: 1m 11s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_19-14-51: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_19-17-48: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_19-21-00: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_19-22-18: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-03_19-25-39: 15h 53m 41s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_14-49-06_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_14-50-28_ppo_torch: 8m 5s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_15-54-23_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_15-55-31_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_15-56-54_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_15-57-52_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_15-58-59_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_15-59-43_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_16-01-25_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_16-02-33_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_16-05-31_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_16-09-23_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_16-10-36_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_16-12-36_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_16-13-56_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_16-14-52_ppo_torch: 0s
+  • skrl/fre25_isaaclabsym_ppo/2025-10-03_16-17-32_ppo_torch: 0s
+
+2025-10-04: 15 runs, 22h 24s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_12-37-02: 27m 18s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_13-17-42: 1m 19s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_13-21-49: 4m 22s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_13-30-29: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_13-32-41: 4m 18s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_13-39-02: 5m 56s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_14-00-21: 47m 2s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_14-55-29: 16m 8s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_15-18-34: 38m 15s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_16-01-22: 46m 25s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_16-53-09: 20m 52s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_17-21-18: 15m 11s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_17-42-06: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_17-42-45: 1h 51m 2s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-04_19-38-46: 16h 22m 10s
+
+2025-10-05: 14 runs, 18h 58m 4s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-05_12-08-16: 50m 20s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-05_13-02-22: 1h 11m 27s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-05_14-21-37: 39m 56s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-05_15-08-53: 30m 15s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-05_15-46-14: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-05_15-47-35: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-05_15-52-17: 5m 31s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-05_16-01-50: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-05_16-02-54: 54m 39s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-05_17-04-03: 1h 17m 43s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-05_18-53-25: 2h 34m 56s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-05_21-42-29: 18m 43s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-05_22-07-49: 1h 38m 52s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-05_23-50-26: 8h 55m 37s
+
+2025-10-06: 17 runs, 1d 2h 14m 8s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_09-28-50: 8h 49m 30s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_18-28-31: 37m 11s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_19-41-51: 27m 29s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_20-12-56: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_20-19-25: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_20-20-43: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_20-21-57: 9m 33s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_20-34-56: 1h 24m 9s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_22-05-59: 22m 21s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_22-36-10: 12m 32s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_22-50-10: 6m 4s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_23-01-05: 8m 56s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_23-14-20: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_23-14-51: 12m 7s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_23-30-37: 8m 18s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_23-39-44: 6m 13s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-06_23-47-30: 13h 29m 38s
+
+2025-10-07: 8 runs, 21h 5m 16s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-07_13-22-51: 2m 28s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-07_13-26-04: 3m 26s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-07_13-37-53: 1m 56s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-07_13-40-19: 11m 19s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-07_14-05-56: 6m 16s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-07_14-13-16: 3h 4m 44s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-07_17-27-34: 17s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-07_17-28-46: 17h 34m 47s
+
+2025-10-08: 24 runs, 10h 34m 2s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_11-11-22: 41m 11s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_12-08-50: 7m 51s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_12-24-35: 11m 30s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_12-55-28: 0s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_12-58-54: 6m 42s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_13-08-54: 17m 17s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_13-29-19: 33m 1s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_14-06-10: 2m 20s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_14-11-11: 40m 27s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_14-53-23: 9m 45s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_15-12-15: 7m 25s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_15-22-53: 14m 19s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_15-40-53: 12m 16s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_15-54-48: 3m 24s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_15-58-37: 3h 14m 49s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_19-23-21: 18m 37s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_19-47-54: 27m 59s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_20-18-51: 34m 30s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_21-12-35: 20m 19s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_21-36-15: 15m 17s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_21-53-28: 3m 40s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_22-00-19: 43m 45s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_22-47-44: 19m 20s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-08_23-11-43: 48m 7s
+
+2025-10-09: 1 runs, 1d 12h 25m 44s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-09_00-01-59: 1d 12h 25m 44s
+
+2025-10-10: 8 runs, 20h 43m
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-10_12-55-37_resumed_from_2025-10-09_00-01-59: 1m 42s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-10_13-12-21_resumed_from_2025-10-10_12-55-37_resumed_from_2025-10-09_00-01-59: 1m 59s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-10_13-16-12: 9m 58s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-10_13-28-10: 16m 2s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-10_13-48-08: 35m 42s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-10_14-25-32_resumed_from_2025-10-10_13-48-08: 33m 43s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-10_15-07-04_resumed_from_2025-10-10_14-25-32_resumed_from_2025-10-10_13-48-08: 3h 6m 35s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-10_18-23-45_resumed_from_2025-10-10_15-07-04_resumed_from_2025-10-10_14-25-32_resumed_from_2025-10-10_13-48-08: 15h 57m 16s
+
+2025-10-11: 14 runs, 7h 59s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-11_10-28-02_resumed_from_2025-10-10_18-23-45_resumed_from_2025-10-10_15-07-04_resumed_from_2025-10-10_14-25-32_resumed_from_2025-10-10_13-48-08: 1h 52m 1s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-11_12-23-28_resumed_from_2025-10-11_10-28-02_resumed_from_2025-10-10_18-23-45_resumed_from_2025-10-10_15-07-04_resumed_from_2025-10-10_14-25-32_resumed_from_2025-10-10_13-48-08: 14m 41s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-11_12-44-21_resumed_from_2025-10-11_12-23-28_resumed_from_2025-10-11_10-28-02_resumed_from_2025-10-10_18-23-45_resumed_from_2025-10-10_15-07-04_resumed_from_2025-10-10_14-25-32_resumed_from_2025-10-10_13-48-08: 2m 44s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-11_12-47-47_resumed_from_2025-10-11_12-23-28_resumed_from_2025-10-11_10-28-02_resumed_from_2025-10-10_18-23-45_resumed_from_2025-10-10_15-07-04_resumed_from_2025-10-10_14-25-32_resumed_from_2025-10-10_13-48-08: 15m 9s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-11_13-05-50_resumed_from_2025-10-11_12-47-47_resumed_from_2025-10-11_12-23-28_resumed_from_2025-10-11_10-28-02_resumed_from_2025-10-10_18-23-45_resumed_from_2025-10-10_15-07-04_resumed_from_2025-10-10_14-25-32_resumed_from_2025-10-10_13-48-08: 14m 19s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-11_13-48-23_resumed_from_v0: 30m 57s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-11_14-21-49_resumed_from_2025-10-11_13-48-23_resumed_from_v0: 32m 4s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-11_15-09-53_resumed_from_2025-10-11_14-21-49_resumed_from_2025-10-11_13-48-23_resumed_from_v0: 9m 5s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-11_15-20-11_resumed_from_2025-10-11_15-09-53_resumed_from_2025-10-11_14-21-49_resumed_from_2025-10-11_13-48-23_resumed_from_v0: 35m 27s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-11_16-00-09_resumed_from_2025-10-11_15-20-11_resumed_from_2025-10-11_15-09-53_resumed_from_2025-10-11_14-21-49_resumed_from_2025-10-11_13-48-23_resumed_from_v0: 3m 10s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-11_17-01-30_resumed_from_SymmetricBaseline0: 33m 17s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-11_18-28-00_resumed_from_SymmetricBaseline1: 6m 34s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-11_21-19-03_resumed_from_SymmetricBaseline2: 1h 37m 34s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-11_23-01-29_resumed_from_2025-10-11_21-19-03_resumed_from_SymmetricBaseline2: 13m 50s
+
+2025-10-12: 9 runs, 8h 5m 54s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-12_12-03-00_resumed_from_SymmetricBaseline3: 2h 19m
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-12_14-33-08_resumed_from_2025-10-12_12-03-00_resumed_from_SymmetricBaseline3: 1h 56m 15s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-12_19-31-20_resumed_from_SymmetricBaseline4: 27m 21s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-12_19-59-49_resumed_from_2025-10-12_19-31-20_resumed_from_SymmetricBaseline4: 13m 13s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-12_20-13-55_resumed_from_2025-10-12_19-59-49_resumed_from_2025-10-12_19-31-20_resumed_from_SymmetricBaseline4: 10m 28s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-12_20-25-47_resumed_from_2025-10-12_20-13-55_resumed_from_2025-10-12_19-59-49_resumed_from_2025-10-12_19-31-20_resumed_from_SymmetricBaseline4: 1h 35m 12s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-12_22-08-20_resumed_from_2025-10-12_20-25-47_resumed_from_2025-10-12_20-13-55_resumed_from_2025-10-12_19-59-49_resumed_from_2025-10-12_19-31-20_resumed_from_SymmetricBaseline4: 47m 19s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-12_23-10-54_resumed_from_2025-10-12_22-08-20_resumed_from_2025-10-12_20-25-47_resumed_from_2025-10-12_20-13-55_resumed_from_2025-10-12_19-59-49_resumed_from_2025-10-12_19-31-20_resumed_from_SymmetricBaseline4: 10m 21s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-12_23-22-06_resumed_from_2025-10-12_23-10-54_resumed_from_2025-10-12_22-08-20_resumed_from_2025-10-12_20-25-47_resumed_from_2025-10-12_20-13-55_resumed_from_2025-10-12_19-59-49_resumed_from_SymmetricBaseline4: 26m 40s
+
+2025-10-13: 4 runs, 3h 5m 22s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-13_02-07-57_resumed_from_CompleteBaseline: 41m 22s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-13_02-52-43_resumed_from_2025-10-13_02-07-57_resumed_from_CompleteBaseline: 8m 27s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-13_03-02-58_resumed_from_CompleteBaseline: 32m 10s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/2025-10-13_03-38-54_resumed_from_2025-10-13_03-02-58_resumed_from_CompleteBaseline: 1h 43m 22s
+
+unknown: 7 runs, 19h 54m 54s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/CompleteBaseline: 1h 36m 5s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/SymmetricBaseline0: 50m 48s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/SymmetricBaseline1: 46m 17s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/SymmetricBaseline2: 2h 38m 18s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/SymmetricBaseline3: 12h 9m 37s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/SymmetricBaseline4: 1h 38m 33s
+  • sb3/Fre25-Isaaclabsym-Direct-v0/v0: 15m 13s
