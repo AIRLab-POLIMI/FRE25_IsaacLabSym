@@ -17,7 +17,7 @@ from .RockerBot import ROCKERBOT_CFG, wheelsJoints, steeringJoints
 class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     # env
     decimation = 4
-    episode_length_s = 30.0
+    episode_length_s = 300.0
 
     # - spaces definition
     action_space = 3  # Base control actions: steering, throttle, step_command
@@ -75,7 +75,7 @@ class Fre25IsaaclabsymEnvCfg(DirectRLEnvCfg):
     action_scale = 50000.0  # [N]
     wheels_effort_scale = 15
     # The range of the steering action is [-1, 1], which corresponds to a steering angle of [-steering_scale, steering_scale] degrees
-    steering_scale = 3  # degs/step
+    steering_scale = 2  # degs/step
     # - reward scales
     rew_scale_alive = 1.0
     rew_scale_terminated = -2.0

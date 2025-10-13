@@ -80,6 +80,12 @@ class EnhancedLoggingCallback(BaseCallback):
                 self.logger.record("rollout/ep_len_mean", np.mean(lengths))
                 self.logger.record("rollout/ep_len_std", np.std(lengths))
 
+                # Log the distribution of episode rewards
+                self.logger.record("rollout/ep_rew_distribution", np.array(rewards))
+
+                # Log ep len distribution
+                self.logger.record("rollout/ep_len_distribution", np.array(lengths))
+
                 # Log custom episode statistics from aggregate sums
                 # These are accurate per-episode means and rates computed from aggregate data
                 if total_episodes > 0:
@@ -95,6 +101,10 @@ class EnhancedLoggingCallback(BaseCallback):
                     self.logger.record("episode/waypoints_reached_mean", waypoints_mean)
                     self.logger.record("episode/waypoints_reached_min", waypoints_min)
                     self.logger.record("episode/waypoints_reached_std", waypoints_std)
+
+                    # Log the distribution of waypoints reached per episode
+                    if waypointsAverge:
+                        self.logger.record("episode/waypoints_reached_distribution", np.array(waypointsAverge))
 
                     self.logger.record("episode/rate_plant_collisions", collisions_mean)
                     # self.logger.record("episode/plant_collisions_total", collisions_sum)
@@ -113,11 +123,6 @@ class EnhancedLoggingCallback(BaseCallback):
                         # No command steps taken - the gap is the entire episode length
                         # This makes sense: if agent never stepped, "time between steps" = episode duration
                         self.logger.record("episode/avg_steps_between_commands", np.mean(lengths))
-
-                    # Also log rates (as percentages of total episodes)
-                    # self.logger.record("episode/collision_rate", (collisions_sum / total_episodes) * 100)
-                    # self.logger.record("episode/oob_rate", (oob_sum / total_episodes) * 100)
-                    # self.logger.record("episode/timeout_rate", (timeouts_sum / total_episodes) * 100)
 
         return True
 

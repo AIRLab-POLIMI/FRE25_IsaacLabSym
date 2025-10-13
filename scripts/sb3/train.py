@@ -253,24 +253,61 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 if hasattr(env, 'ret_rms') and env.ret_rms is not None:
                     print(f"[INFO]    Reward mean: {env.ret_rms.mean:.4f}, std: {np.sqrt(env.ret_rms.var):.4f}")
 
-    # create agent from stable baselines (algorithm selected by Hydra config)
-    print(f"[INFO] Creating {algorithm_name} agent with {policy_class}")
-    agent = algorithm_class(policy_class, env, verbose=1, **agent_cfg)
-
-    # Load checkpoint if provided (after agent creation, before training)
+    # Create agent: either from scratch or from checkpoint with overridden params
     if args_cli.checkpoint is not None:
-        print(f"[INFO] 🔄 Loading model weights and optimizer state from checkpoint...")
+        print(f"[INFO] 🔄 Loading checkpoint with current config overrides...")
+        
+        # Build custom_objects dict with training parameters to override from current config
+        # These are the hyperparameters that will be taken from the current YAML config
+        # instead of from the checkpoint
+        custom_objects = {
+            'learning_rate': agent_cfg.get('learning_rate'),
+            'n_steps': agent_cfg.get('n_steps'),
+            'batch_size': agent_cfg.get('batch_size'),
+            'n_epochs': agent_cfg.get('n_epochs'),
+            'gamma': agent_cfg.get('gamma'),
+            'gae_lambda': agent_cfg.get('gae_lambda'),
+            'clip_range': agent_cfg.get('clip_range'),
+            'clip_range_vf': agent_cfg.get('clip_range_vf'),
+            'ent_coef': agent_cfg.get('ent_coef'),
+            'vf_coef': agent_cfg.get('vf_coef'),
+            'max_grad_norm': agent_cfg.get('max_grad_norm'),
+            'target_kl': agent_cfg.get('target_kl'),
+        }
+        
+        # Remove None values (use checkpoint's value if not specified in current config)
+        custom_objects = {k: v for k, v in custom_objects.items() if v is not None}
+        
+        print(f"[INFO] � Overriding {len(custom_objects)} training parameters with current config:")
+        for key, value in custom_objects.items():
+            print(f"[INFO]    • {key}: {value}")
+        
         try:
-            agent.set_parameters(args_cli.checkpoint, exact_match=True)
-            print(f"[INFO] ✅ Model checkpoint loaded successfully")
+            # Load checkpoint with parameter overrides
+            agent = algorithm_class.load(
+                args_cli.checkpoint,
+                env=env,
+                custom_objects=custom_objects,
+                device=agent_cfg.get('device', 'auto'),
+                verbose=1
+            )
+            
+            print(f"[INFO] ✅ Checkpoint loaded successfully with config overrides")
             print(f"[INFO]    Policy architecture: {agent.policy}")
             print(f"[INFO]    Observation space: {agent.observation_space.shape}")
             print(f"[INFO]    Action space: {agent.action_space}")
+            
         except Exception as e:
             print(f"[ERROR] ❌ Failed to load checkpoint: {e}")
-            print(f"[ERROR]    This may indicate incompatible observation/action spaces")
-            print(f"[ERROR]    or a corrupted checkpoint file")
+            print(f"[ERROR]    This may indicate:")
+            print(f"[ERROR]    - Incompatible observation/action spaces")
+            print(f"[ERROR]    - Algorithm mismatch (PPO vs RecurrentPPO)")
+            print(f"[ERROR]    - Corrupted checkpoint file")
             raise
+    else:
+        # Create fresh agent with full config
+        print(f"[INFO] Creating {algorithm_name} agent with {policy_class}")
+        agent = algorithm_class(policy_class, env, verbose=1, **agent_cfg)
 
     # configure the logger
     new_logger = configure(log_dir, ["stdout", "tensorboard"])

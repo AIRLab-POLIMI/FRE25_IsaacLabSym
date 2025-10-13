@@ -44,10 +44,12 @@ class WaypointHandler:
         ), "waypointsPerRow must be greater than 2, got {}".format(waypointsPerRow)
         self.waypointsPerRow = waypointsPerRow
 
-        self.nRows = self.commandBuffer.commandsLength + 1
+        # Number of rows = number of commands (stops after last turn, no extra row)
+        self.nRows = self.commandBuffer.commandsLength
 
-        # The first row of plants adds 1 waypoints (end), each command adds 2 waypoints (landing row start and end)
-        # Plus one extra waypoint per row (except last) for turn guidance
+        # Waypoints calculation:
+        # First row: waypointsPerRow-1 (skip start), remaining rows: (nRows-1)*waypointsPerRow
+        # Plus one extra waypoint after EACH row EXCEPT the last for turn guidance
         self.nWaypoints = self.nRows * self.waypointsPerRow - 1 + (self.nRows - 1)
 
         assert envsOrigins.shape == (
@@ -131,7 +133,10 @@ class WaypointHandler:
 
         # Create in-row waypoints (no padding)
         rowXs = torch.linspace(
-            -self.endOfRowPadding, self.pathHandler.pathLength + self.endOfRowPadding, self.waypointsPerRow, device=device
+            -self.endOfRowPadding,
+            self.pathHandler.pathLength + self.endOfRowPadding,
+            self.waypointsPerRow,
+            device=device,
         )
         doubleRowXs = torch.cat((rowXs, torch.flip(rowXs, [0])), dim=0)
 
@@ -140,10 +145,10 @@ class WaypointHandler:
             envWaypointsX = torch.cat((envWaypointsX, rowXs))
         envWaypointsX = envWaypointsX[1:]  # remove the first waypoint (it is at 0)
 
-        # Insert extra waypoints at the end of each row (except last) for turn guidance
+        # Insert extra waypoints at the end of each row EXCEPT the last for turn guidance
         # Extra waypoints have X with padding: either -padding or pathLength+padding
         n_original = len(envWaypointsX)
-        n_extras = self.nRows - 1
+        n_extras = self.nRows - 1  # Extra waypoint after each row except the last
 
         # Create tensor with space for extras
         envWaypointsX_with_extras = torch.zeros(n_original + n_extras, device=device)
@@ -171,16 +176,20 @@ class WaypointHandler:
         # Row 3: 29-38 (10 elements, ending at 38 = 4*waypointsPerRow-2)
         #
         # So the last waypoint of row i is at: (i+1)*waypointsPerRow - 2
-        # For rows 0,1,2 (not the last row 3), we insert extras after these positions
+        # Now we insert extras after rows 0,1,2,...,nRows-2 (all except the last)
 
         # In the original array (before insertions), the last waypoint of row i is at:
-        original_row_end_indices = (torch.arange(n_extras, device=device) + 1) * self.waypointsPerRow - 2
+        original_row_end_indices = (
+            torch.arange(n_extras, device=device) + 1
+        ) * self.waypointsPerRow - 2
 
         # In the new array (with insertions), each extra shifts subsequent indices by 1
         # Extra after row 0 goes at position: row_0_end + 1
         # Extra after row 1 goes at position: row_1_end + 1 + 1 (shifted by previous extra)
         # Extra after row i goes at position: row_i_end + 1 + i
-        extra_positions_in_new = original_row_end_indices + torch.arange(1, n_extras + 1, device=device)
+        extra_positions_in_new = original_row_end_indices + torch.arange(
+            1, n_extras + 1, device=device
+        )
 
         # Create a mask for extra positions
         is_extra = torch.zeros(n_original + n_extras, dtype=torch.bool, device=device)
@@ -194,12 +203,12 @@ class WaypointHandler:
         # Row 0 ends at pathLength, so extra after row 0 should be at pathLength + padding
         # Row 1 ends at 0, so extra after row 1 should be at -padding
         row_indices = torch.arange(n_extras, device=device)
-        is_forward_row = (row_indices % 2 == 0)  # Even rows go forward
+        is_forward_row = row_indices % 2 == 0  # Even rows go forward
 
         extra_X_values = torch.where(
             is_forward_row,
             self.pathHandler.pathLength + self.extraWaypointPadding,
-            -self.extraWaypointPadding
+            -self.extraWaypointPadding,
         )
 
         envWaypointsX_with_extras[is_extra] = extra_X_values
@@ -295,24 +304,66 @@ class WaypointHandler:
 
         # Create a tensor with Y values for each row: first row is 0, rest from rowsY
         # Shape: (len(env_ids), nRows)
+        # Note: nRows = commandsLength, so rowsY already has all rows except the first (which is at Y=0)
         allRowsY = torch.cat(
             [torch.zeros(len(env_ids), 1, device=rowsY.device), rowsY], dim=1
-        )  # (len(env_ids), nRows)
+        )  # (len(env_ids), nRows+1) = (len(env_ids), commandsLength+1)
+
+        # But we only want nRows rows, not nRows+1, so we need to slice
+        # Since nRows = commandsLength, we have one too many rows
+        # Actually, wait - let me reconsider the structure:
+        # - First row (row 0): starts at Y=0
+        # - After command 0, we're at Y=rowsY[:, 0]
+        # - After command 1, we're at Y=rowsY[:, 1]
+        # ...
+        # - After command i, we're at Y=rowsY[:, i]
+        #
+        # But if nRows = commandsLength, then:
+        # - Row 0 is at Y=0
+        # - Row 1 is at Y=rowsY[:, 0] (after first command/turn)
+        # - Row 2 is at Y=rowsY[:, 1] (after second command/turn)
+        # ...
+        # - Row i is at Y=rowsY[:, i-1] (after (i-1)-th command/turn)
+        #
+        # So allRowsY should be: [0, rowsY], which has shape (commandsLength+1)
+        # But nRows = commandsLength, so we have one extra!
+        #
+        # The issue is that nRows = commandsLength means we have commandsLength rows,
+        # but the Y position after commandsLength commands gives us commandsLength+1 distinct Y values
+        # (initial + commandsLength transitions)
+        #
+        # Actually, I think the logic should be:
+        # If we have commandsLength commands, and we stop after the last turn:
+        # - Row 0: Y=0
+        # - Turn 1 → Row 1: Y=rowsY[0]
+        # - Turn 2 → Row 2: Y=rowsY[1]
+        # - ...
+        # - Turn commandsLength → Stop at Y=rowsY[commandsLength-1]
+        #
+        # So we have commandsLength rows (0 through commandsLength-1), not commandsLength+1
+        # Therefore allRowsY should be [0, rowsY], but then we only use first nRows elements
+        allRowsY = allRowsY[:, :self.nRows]  # (len(env_ids), nRows)
 
         # Strategy: Create Y values for "logical" structure without extras first,
         # then expand to include extras
 
         # Create mask for extra positions first (needed for X coordinate extraction)
         device = waypointsY.device
-        n_extras = self.nRows - 1
-        original_row_end_indices = (torch.arange(n_extras, device=device) + 1) * self.waypointsPerRow - 2
-        extra_positions_in_new = original_row_end_indices + torch.arange(1, n_extras + 1, device=device)
+        n_extras = self.nRows - 1  # Extra waypoint after each row except the last
+        original_row_end_indices = (
+            torch.arange(n_extras, device=device) + 1
+        ) * self.waypointsPerRow - 2
+        extra_positions_in_new = original_row_end_indices + torch.arange(
+            1, n_extras + 1, device=device
+        )
         is_extra = torch.zeros(self.nWaypoints, dtype=torch.bool, device=device)
         is_extra[extra_positions_in_new] = True
 
         # Logical waypoints (without extras): waypointsPerRow-1 per row
         n_logical = self.nRows * self.waypointsPerRow - 1
-        logical_waypointsY = torch.zeros((len(env_ids), n_logical), device=waypointsY.device)
+        logical_waypointsY = torch.zeros(
+            (len(env_ids), n_logical), device=waypointsY.device
+        )
 
         # Create row assignment for each logical waypoint (which row does waypoint i belong to?)
         # Row 0: waypoints 0 to waypointsPerRow-2 (waypointsPerRow-1 total)
@@ -322,17 +373,21 @@ class WaypointHandler:
         # But first row only has waypointsPerRow-1 waypoints, so:
         # j < waypointsPerRow-1: row 0
         # j >= waypointsPerRow-1: row = floor((j+1)/waypointsPerRow)
-        row_assignment = torch.zeros(n_logical, dtype=torch.long, device=waypointsY.device)
-        row_assignment[waypoint_indices >= self.waypointsPerRow - 1] = (
-            (waypoint_indices[waypoint_indices >= self.waypointsPerRow - 1] + 1) // self.waypointsPerRow
+        row_assignment = torch.zeros(
+            n_logical, dtype=torch.long, device=waypointsY.device
         )
+        row_assignment[waypoint_indices >= self.waypointsPerRow - 1] = (
+            waypoint_indices[waypoint_indices >= self.waypointsPerRow - 1] + 1
+        ) // self.waypointsPerRow
 
         # Assign Y values using advanced indexing
         # For each waypoint, get the Y value of its row
         # allRowsY has shape (len(env_ids), nRows)
         # row_assignment has shape (n_logical,)
         # We want logical_waypointsY[env, waypoint] = allRowsY[env, row_assignment[waypoint]]
-        logical_waypointsY = allRowsY[:, row_assignment]  # Broadcasting: (len(env_ids), n_logical)
+        logical_waypointsY = allRowsY[
+            :, row_assignment
+        ]  # Broadcasting: (len(env_ids), n_logical)
 
         # Sample Y offsets from spline for logical waypoints to follow path shape
         # Get X coordinates for logical waypoints (non-extra waypoints)
@@ -346,7 +401,9 @@ class WaypointHandler:
         # For each row, we need to figure out which path index to use
         # Row 0 starts at path 0, then each command changes path by turnsMagnitudes
         # Build path indices for each row: shape (len(env_ids), nRows)
-        row_path_indices = torch.zeros((len(env_ids), self.nRows), dtype=torch.long, device=logical_X.device)
+        row_path_indices = torch.zeros(
+            (len(env_ids), self.nRows), dtype=torch.long, device=logical_X.device
+        )
         # First row always starts at middle path (index 0 relative to spline center)
         # Subsequent rows: cumsum of (turnsMagnitudes * globalTurnDirectionsSign)
         # But turnsMagnitudes is in units of "number of paths", and we're working with the spline Y offset
@@ -358,7 +415,9 @@ class WaypointHandler:
         # We need to handle forward/backward rows: backward rows need reversed X sampling
 
         # Determine forward/backward for each row
-        rows_forward = torch.arange(self.nRows, device=logical_X.device) % 2 == 0  # (nRows,)
+        rows_forward = (
+            torch.arange(self.nRows, device=logical_X.device) % 2 == 0
+        )  # (nRows,)
 
         # For each logical waypoint, determine if its row is forward or backward
         waypoint_forward = rows_forward[row_assignment]  # (n_logical,)
@@ -369,7 +428,7 @@ class WaypointHandler:
         logical_X_for_sampling = torch.where(
             waypoint_forward[None, :],  # Broadcast to (len(env_ids), n_logical)
             logical_X,
-            self.pathHandler.pathLength - logical_X
+            self.pathHandler.pathLength - logical_X,
         )
 
         # Sample Y offsets from spline (vectorized for all environments and waypoints)
@@ -399,7 +458,9 @@ class WaypointHandler:
             # Get t values for this environment
             t_env = t_values[i]  # (n_logical,)
             # Evaluate spline for all t values at once
-            spline_eval = self.pathHandler.spline.evaluate(t_env)  # (nEnvs, n_logical, 2)
+            spline_eval = self.pathHandler.spline.evaluate(
+                t_env
+            )  # (nEnvs, n_logical, 2)
             # Extract this environment's values (use env_id as index into full env array)
             spline_y_offsets[i] = spline_eval[env_id, :, 1]  # Y component
 
@@ -410,25 +471,37 @@ class WaypointHandler:
 
         # Apply spline offsets to logical waypoints, but skip first waypoint (index 0)
         # Create mask: skip waypoint 0
-        offset_mask = torch.arange(n_logical, device=logical_X.device) > 0  # (n_logical,)
+        offset_mask = (
+            torch.arange(n_logical, device=logical_X.device) > 0
+        )  # (n_logical,)
 
         # Apply offsets only where mask is True
-        logical_waypointsY = logical_waypointsY + (spline_y_offsets * offset_mask[None, :])
+        logical_waypointsY = logical_waypointsY + (
+            spline_y_offsets * offset_mask[None, :]
+        )
 
-        # Now insert extra waypoints with Y = average of current and next row
+        # Now insert extra waypoints with Y values
+        # For intermediate turns (after rows 0 to nRows-2): Y = average of current and next row
+        # No extra waypoint after the last row
         # Calculate Y values for extra waypoints
-        # allRowsY[:, :-1] = current row Y, allRowsY[:, 1:] = next row Y
-        extra_Y = (allRowsY[:, :-1] + allRowsY[:, 1:]) / 2.0  # (len(env_ids), nRows-1)
+        if self.nRows > 1:
+            # allRowsY[:, :-1] = current row Y (rows 0 to nRows-2)
+            # allRowsY[:, 1:] = next row Y (rows 1 to nRows-1)
+            # We want extras after rows 0 to nRows-2, so average of these
+            extra_Y = (allRowsY[:, :-1] + allRowsY[:, 1:]) / 2.0  # (len(env_ids), nRows-1)
+        else:
+            # Only one row, so no extra waypoints needed
+            extra_Y = torch.zeros((len(env_ids), 0), device=waypointsY.device)  # Empty tensor
 
         # Place logical waypoints in non-extra positions
         waypointsY[:, ~is_extra] = logical_waypointsY
 
-        # Place extra waypoints with averaged Y values (vectorized)
-        # extra_Y has shape (len(env_ids), nRows-1)
-        # extra_positions_in_new has shape (nRows-1,)
-        # We want waypointsY[:, extra_positions_in_new[i]] = extra_Y[:, i] for all i
-        # This can be done with: waypointsY[:, extra_positions_in_new] = extra_Y
-        waypointsY[:, extra_positions_in_new] = extra_Y
+        # Place extra waypoints (vectorized)
+        # extra_Y has shape (len(env_ids), nRows)
+        # extra_positions_in_new has shape (nRows,)
+        # We want waypointsY[env_i, extra_positions_in_new] = extra_Y[env_i, :]
+        for i in range(len(env_ids)):
+            waypointsY[i, extra_positions_in_new] = extra_Y[i]
 
         # add the environment origins to the waypoints
         waypointsY += self.envsOrigins[env_ids, :, 1]
@@ -467,7 +540,9 @@ class WaypointHandler:
         env_indices = torch.arange(
             self.nEnvs, device=self.currentWaypointIndices.device
         )
-        pastMask = torch.arange(self.nWaypoints, device=self.waypointsPositions.device).repeat(self.nEnvs, 1) < self.currentWaypointIndices[:, 1].unsqueeze(1)
+        pastMask = torch.arange(
+            self.nWaypoints, device=self.waypointsPositions.device
+        ).repeat(self.nEnvs, 1) < self.currentWaypointIndices[:, 1].unsqueeze(1)
         # Set the past waypoints (blue)
         indexes[pastMask] = 2
 
@@ -486,7 +561,9 @@ class WaypointHandler:
         futureIndex = torch.clamp(
             self.currentWaypointIndices[:, 1] + 3, max=self.nWaypoints - 1
         )
-        futureMask = torch.arange(self.nWaypoints, device=self.waypointsPositions.device).repeat(self.nEnvs, 1) > futureIndex.unsqueeze(1)
+        futureMask = torch.arange(
+            self.nWaypoints, device=self.waypointsPositions.device
+        ).repeat(self.nEnvs, 1) > futureIndex.unsqueeze(1)
         scales[futureMask] = 0.2
 
         self.markersVisualizer.visualize(
@@ -530,8 +607,34 @@ class WaypointHandler:
 
     def updateTooFarFromWaypoint(self):
         # Check if the robot is too far from the current waypoint
+        maxDistances = (
+            torch.ones_like(self.robotTooFarFromWaypoint, dtype=torch.float32)
+            * self.maxDistanceToWaypoint
+        )
+        notFirstMask = self.currentWaypointIndices[:, 1] > 0
+        notFirstIndices = torch.where(notFirstMask)[0]
+
+        if notFirstIndices.numel() > 0:
+            currentWaypointIndex = self.currentWaypointIndices[notFirstIndices, 1]
+            notFirstCurrentWaypointPositions = self.waypointsPositions[
+                notFirstIndices, currentWaypointIndex
+            ]
+
+            lastWaypointIndex = currentWaypointIndex - 1
+            notFirstLastWaypointPositions = self.waypointsPositions[
+                notFirstIndices, lastWaypointIndex
+            ]
+
+            distanceFromLastToCurrent = torch.norm(
+                notFirstCurrentWaypointPositions[:, :2]
+                - notFirstLastWaypointPositions[:, :2],
+                dim=1,
+            )
+            distanceFromLastToCurrent += self.waipointReachedEpsilon
+            maxDistances[notFirstIndices] = distanceFromLastToCurrent
+
         self.robotTooFarFromWaypoint = (
-            torch.norm(self.robotsdiffs, dim=1) > self.maxDistanceToWaypoint
+            torch.norm(self.robotsdiffs, dim=1) > maxDistances
         )
 
     def updateCurrentDiffs(self, robot_pos_xy: torch.Tensor):

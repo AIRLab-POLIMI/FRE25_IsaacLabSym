@@ -116,7 +116,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         # Initialize command buffer
         self.commandBuffer = CommandBuffer(
             nEnvs=self.scene.num_envs,
-            commandsLength=3,
+            commandsLength=8,
             maxRows=1,
             device=self.device,
         )
@@ -126,10 +126,10 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.paths = PathHandler(
             device=self.device,
             nEnvs=self.scene.num_envs,
-            nPaths=6,
+            nPaths=2 * (self.commandBuffer.commandsLength + 1),  # Two paths per command (left/right)
             pathsSpacing=1.2,
             nControlPoints=10,
-            pathLength=2,
+            pathLength=3,
             pathWidth=0.15,
             pointNoiseStd=0.03,
         )
@@ -142,17 +142,17 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             envsOrigins=self.scene.env_origins,
             commandBuffer=self.commandBuffer,
             pathHandler=self.paths,
-            waipointReachedEpsilon=0.4,
-            maxDistanceToWaypoint=2,
+            waipointReachedEpsilon=0.35,
+            maxDistanceToWaypoint=1.8,
             endOfRowPadding=0.4,
-            extraWaypointPadding=0.9,
+            extraWaypointPadding=0.8,
             waypointsPerRow=3,
         )
         self.waypoints.initializeWaypoints()
 
         # Add Plants to the scene
         self.plants = PlantHandler(
-            nPlants=60,
+            nPlants=10 * self.paths.nPaths,
             envsOrigins=self.scene.env_origins,
             plantRadius=0.22,
         )
@@ -465,19 +465,25 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
 
         # Time out penalty
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        timeOutPenalty = time_out.float() * -50  # -50
+        timeOutPenalty = time_out.float() * -100  # -50
 
         # Penalty for plant collisions
-        plantCollisionPenalty = self.plant_collision_buffer.float() * -10  # -50
+        plantCollisionPenalty = self.plant_collision_buffer.float() * -100  # -50
         self.plant_collision_buffer = torch.zeros(self.num_envs, device=self.device)
 
         # Out of bounds penalty
         out_of_bounds = self.waypoints.robotTooFarFromWaypoint
-        outOfBoundsPenalty = out_of_bounds.float() * -10  # -50
+        outOfBoundsPenalty = out_of_bounds.float() * -100  # -50
 
         # Penalty for performing a command step
         # This encourages the agent to be selective about when to advance the command buffer
-        commandStepPenalty = -0.5 * self.command_step_buffer.float()
+        commandStepPenalty = -0 * self.command_step_buffer.float()
+
+        # Penalty for command buffer in the wrong place
+        rightIndex = torch.clip(torch.clip(self.waypoints.currentWaypointIndices[:, 1] - 0, min=0) // (self.waypoints.waypointsPerRow + 1), max=self.commandBuffer.commandsLength - 1)
+        commandIndices = self.commandBuffer.indexBuffer
+        commandIndexDiff = torch.abs(rightIndex - commandIndices)
+        commandIndexPenalty = -1.0 * commandIndexDiff.float()
 
         # Reset command step buffer after computing the reward
         # This is done here (not in _apply_action) because _apply_action is called
@@ -486,7 +492,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
         self.command_step_buffer[:] = False
 
         # Distance to waypoint penalty (encourage getting closer)
-        distancePenalty = -torch.clamp(toWaypointNorm.squeeze() - 0.1, min=0) * 0.5
+        distancePenalty = -torch.clamp(toWaypointNorm.squeeze() - 0.1, min=0) * 1
 
         # Note: No action bound violation penalty for discrete actions
 
@@ -499,6 +505,7 @@ class Fre25IsaaclabsymEnv(DirectRLEnv):
             + outOfBoundsPenalty
             + commandStepPenalty
             + distancePenalty
+            + commandIndexPenalty
         )
         # print(f"totalReward: {totalReward}")
 

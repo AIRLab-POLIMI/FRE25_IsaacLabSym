@@ -19,7 +19,6 @@
 seed: 42
 
 # Policy configuration - MLP by default
-policy_type: mlp  # Options: mlp or lstm
 algorithm: PPO  # PPO for MLP, RecurrentPPO for LSTM
 policy_class: MlpPolicy  # MlpPolicy for MLP, MlpLstmPolicy for LSTM
 
@@ -38,9 +37,9 @@ batch_size: 256  # Minibatch size (overridden by policy configs)
 n_epochs: 10  # Number of epochs when optimizing the surrogate loss
 
 # PPO hyperparameters
-learning_rate: 0.0005  # Learning rate
-gamma: 0.995  # Discount factor (horizon ~100 steps)
-gae_lambda: 0.995  # Factor for trade-off of bias vs variance for GAE
+learning_rate: 0.0002  # Learning rate
+gamma: 0.99  # Discount factor (horizon ~100 steps)
+gae_lambda: 0.95  # Factor for trade-off of bias vs variance for GAE
 clip_range: 0.2  # Clipping parameter for PPO
 ent_coef: 0.01 # Entropy coefficient for the loss calculation (higher for discrete actions)
 vf_coef: 2.0  # Value function coefficient for the loss calculation
@@ -49,6 +48,10 @@ max_grad_norm: 1.0  # Max value for gradient clipping
 # Base policy architecture (overridden by policy-specific configs)
 policy_kwargs:
   ortho_init: true  # Use orthogonal initialization
+  net_arch:
+    - 256
+    - 128
+    - 64
 
 # Normalization
 normalize_input: false  # Normalize observations
