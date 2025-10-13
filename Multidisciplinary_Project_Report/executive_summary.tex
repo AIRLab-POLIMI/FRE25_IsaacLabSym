@@ -241,6 +241,7 @@ Let $A$ and $B$ be two kinematics, than $A \leq B$ i.f.f. all the robot's poses 
 \end{figure*}
 
 \section{Traditional Solution}
+\label{sec:trad}
 FRE's Task 1 is typically addressed using a more traditional approach, following the Sense Plan Act paradigm. of Probabilistic Robotics. More in detail, one can follow 2 strategies:
 \begin{itemize}
     \item \textbf{SLAM based}: Using Simultaneous Localisation and Mapping algorithms \cite{DurrantWhyte2006SimultaneousLA} \cite{ProbabilisticRobotics}, one can use the standard navigation pipeline similar to the one implemented in the ROS package Nav2 \cite{nav2}.
@@ -428,6 +429,139 @@ The current state of the project allows for a complete solution of phase 4, whic
 
     
 \end{itemize}
+
+\section{Future Work}
+
+While this project establishes a foundation for RL-based agricultural navigation, several critical research directions remain unexplored. What follows is a list of ideas and proposals on what the next step for this project could be.
+
+\subsection{Empirical Validation Through Ablation Studies}
+
+The current implementation introduces several design choices: accumulator-based memory, action discretisation, and multi-component reward shaping. Due to time constraints, those have been greedily optimised towards better performance without a more thorough empirical analysis. A sequence of ablation studies could lead to more structured knowledge about each element's contribution. 
+
+\paragraph{Memory Architecture Comparison}
+A controlled comparison between memory mechanisms is needed:
+\begin{itemize}
+    \item \textbf{Baseline}: No memory (current observations only)
+    \item \textbf{Frame stacking}: Concatenate last $k$ observations
+    \item \textbf{Accumulator}: Current implementation with $\dot{\vec{h}}$ control
+    \item \textbf{LSTM/GRU}: Recurrent architectures despite computational cost
+\end{itemize}
+Each variant should be trained with identical hyperparameters for $n \geq 5$ random seeds, measuring convergence speed, sample efficiency, final success rate, and computational overhead.
+
+\paragraph{Action Space Design}
+The discretization to $\{\dot{\delta}, \dot{f}\} \in \{-1, 0, 1\}$ dramatically constrains the control space. An ablation study should compare:
+\begin{itemize}
+    \item Continuous differential actions: $\dot{\delta}, \dot{f} \in [-1, 1]$
+    \item Coarse discretization: $\{-1, 0, 1\}$ (current)
+    \item Fine discretization: $\{-1, -0.5, 0, 0.5, 1\}$
+    \item Direct control: $\delta, f$ without differential formulation
+\end{itemize}
+Metrics should include final performance, learning stability (variance across seeds), and interpretability of learned policies.
+
+\paragraph{Reward Decomposition Analysis}
+The reward function (Section 8.6) linearly combines seven terms with manually tuned coefficients. A principled approach requires:
+\begin{enumerate}
+    \item \textbf{Component ablation}: Remove each reward term individually to identify critical components
+    \item \textbf{Coefficient sensitivity}: Vary each coefficient by orders of magnitude ($0.1\times, 1\times, 10\times$)
+    \item \textbf{Automated tuning}: Apply reward scaling methods or population-based training
+    \item \textbf{Sparse baseline}: Compare against waypoint-only rewards to quantify the benefit of shaping
+\end{enumerate}
+
+\subsection{Baseline Comparisons and Benchmarking}
+
+The current work lacks a performance baseline. Some possible candidates could be the traditional approaches listed in \ref{sec:trad}.
+
+\paragraph{Alternative Learning Methods}
+\begin{itemize}
+    \item \textbf{Behavioral cloning}: Train supervised policy from expert demonstrations (classical controller trajectories)
+    \item \textbf{Other RL algorithms}: SAC, TD3 for continuous control comparison
+\end{itemize}
+
+Each method should be evaluated on identical test scenarios with metrics including: success rate, average waypoints reached, trajectory smoothness, computational requirements, and sample efficiency (for learning methods).
+
+\subsection{Generalization and Robustness Analysis}
+
+Current training and evaluation use the same distribution of environments. Rigorous evaluation requires:
+
+\paragraph{Systematic Generalization Tests}
+\begin{itemize}
+    \item \textbf{Row curvature}: Train on $\sigma_c = 0.5$, test on $\sigma_c \in \{0.1, 1.0, 2.0\}$
+    \item \textbf{Plant density}: Train on $\rho = 20$, test on $\rho \in \{10, 15, 25, 30\}$
+    \item \textbf{Row spacing}: Train on $\Delta_r = 0.75$m, test on $\Delta_r \in \{0.6, 0.9\}$m
+    \item \textbf{Missing plants}: Train with 0\% missing, test with \{10\%, 20\%, 30\%\} randomly missing
+    \item \textbf{Sensor noise}: Add graduated noise to LIDAR and encoder readings
+\end{itemize}
+
+\paragraph{Domain Randomization}
+Implement training with randomized parameters (the standard sim-to-real approach) and measure whether generalization improves at the cost of peak performance on training distribution.
+
+\subsection{Scaling the Difficulty Curriculum}
+
+The project stopped at level 4 of 5 in the proposed curriculum. Completing the progression requires:
+
+\paragraph{Level 3: Multi-row Skipping}
+Enable skipping up to 2 rows during turns. This requires:
+\begin{itemize}
+    \item More complex waypoint counting in the accumulator state
+    \item Extended command buffer reasoning
+    \item Potentially longer episodes for exploration
+\end{itemize}
+
+\paragraph{Level 2: Full Rigid Body Kinematic}
+Remove the $\omega_A = 0$ constraint, allowing simultaneous translation and rotation. Challenges include:
+\begin{itemize}
+    \item Expanded action space: $[v_{xA}, v_{yA}, \omega_A]$
+    \item More complex kinematic constraints
+    \item Risk of kinematic singularities during learning
+\end{itemize}
+
+\paragraph{Level 1: Full 4WIS4WID Control}
+The ultimate goal: independent control of all four wheels. This requires addressing:
+\begin{itemize}
+    \item 8-dimensional action space (4 angles, 4 velocities)
+    \item Discontinuities from $\delta_i \in [-\pi/2, \pi/2]$ constraints
+    \item Kinematic coordination between wheels
+    \item Potentially hierarchical control policies
+\end{itemize}
+
+\subsection{Sim-to-Real Transfer Strategy}
+
+Physical deployment requires explicit bridging of the reality gap:
+
+\paragraph{Systematic Noise Modeling}
+\begin{itemize}
+    \item Characterize real sensor noise (LIDAR, encoders) through data collection
+    \item Model actuation delays and inaccuracies
+    \item Implement these as randomization parameters in simulation
+\end{itemize}
+
+\paragraph{Sim-to-Real Techniques}
+Explore methods such as:
+\begin{itemize}
+    \item Domain randomization with gradually increasing variance
+    \item Fine-tuning with small amounts of real-world data
+    \item Residual RL: RL policy correcting classical controller
+\end{itemize}
+
+\subsection{Interpretability and Failure Analysis}
+
+Understanding policy behavior is essential for debugging and trust:
+
+\paragraph{Visualization Tools}
+\begin{itemize}
+    \item Attention maps: Which LIDAR rays most influence decisions?
+    \item Accumulator state trajectories: What information is stored in $\vec{h}$?
+    \item Action distribution evolution: How does the policy's action selection change spatially?
+\end{itemize}
+
+\paragraph{Systematic Failure Characterization}
+Collect and categorize failure modes:
+\begin{itemize}
+    \item Where in the episode do failures occur? (start, mid-row, turns)
+    \item What environment features correlate with failure? (curvature, plant gaps)
+    \item Are failures deterministic or stochastic for the same scenario?
+\end{itemize}
+
 
 \section{Conclusion}
 
